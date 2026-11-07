@@ -1,0 +1,38 @@
+universe_version: 1
+etfs:
+  - ticker: JNK
+    name: SPDR Bloomberg High Yield Bond ETF
+    category: U.S. fixed income
+  - ticker: SJNK
+    name: SPDR Bloomberg Short Term High Yield Bond ETF
+    category: U.S. fixed income
+  - ticker: SPAB
+    name: SPDR Portfolio Aggregate Bond ETF
+    category: U.S. fixed income
+  - ticker: SPSB
+    name: SPDR Portfolio Short Term Corporate Bond ETF
+    category: U.S. fixed income
+  - ticker: BIL
+    name: SPDR Bloomberg 1-3 Month T-Bill ETF
+    category: U.S. fixed income
+  - ticker: BWX
+    name: SPDR Bloomberg International Treasury Bond ETF
+    category: International fixed income
+  - ticker: EBND
+    name: SPDR Bloomberg Emerging Markets Local Bond ETF
+    category: International fixed income
+  - ticker: SPDW
+    name: SPDR Portfolio Developed World ex-US ETF
+    category: International equity
+  - ticker: SPEM
+    name: SPDR Portfolio Emerging Markets ETF
+    category: International equity
+  - ticker: FEZ
+    name: SPDR EURO STOXX 50 ETF
+    category: International equity
+  - ticker: GII
+    name: SPDR S&P Global Infrastructure ETF
+    category: Global equity
+  - ticker: GNR
+    name: SPDR S&P Global Natural Resources ETF
+    category: Global equity

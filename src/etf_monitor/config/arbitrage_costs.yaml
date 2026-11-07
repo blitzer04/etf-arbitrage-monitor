@@ -1,0 +1,62 @@
+# Creation/redemption cost inputs for the Gate 10 arbitrage band, reviewed 2026-11-05.
+#
+# creation_unit_shares: Form N-CEN item E.2 "number of ETF shares per creation
+#   unit" from the trust's latest N-CEN on EDGAR (filing in `unit_source`).
+# creation_fee_usd: standard fixed creation/redemption transaction fee per
+#   creation unit from the trust's SAI (485BPOS on EDGAR) where the SAI table
+#   lists the fund; otherwise the N-CEN reported average fee per unit for
+#   multi-unit orders (`fee_source` says which). Variable charges for cash or
+#   non-standard orders (up to 3x the fixed fee) are excluded.
+# basket_cost_bps: ASSUMED one-way cost of trading the underlying basket, by
+#   asset class. Not observed; see docs/decision-log.md (Gate 10).
+# etf_half_spread_bps: ASSUMED ETF half bid-ask spread by asset class (Yahoo
+#   has no quotes; the OHLC estimate is reported but too noisy to use).
+# stale_nav: NAV is struck from foreign closes before the U.S. close.
+costs_version: 1
+sources:
+  sai_series_trust: "SPDR Series Trust 485BPOS 2026-10-26, accession 0001193125-26-432200"
+  sai_index_shares: "SPDR Index Shares Funds 485BPOS 2026-01-23, accession 0001193125-26-021169"
+  sai_select_sector: "Select Sector SPDR Trust 485BPOS 2026-10-09, accession 0001193125-26-419006"
+  ncen_series_trust_2026_09: "SPDR Series Trust N-CEN 2026-09-11, accession 0001410368-26-091247"
+  ncen_series_trust_2026_03: "SPDR Series Trust N-CEN 2026-03-13, accession 0001410368-26-023902"
+  ncen_series_trust_2025_09: "SPDR Series Trust N-CEN 2025-09-12, accession 0001752724-25-214852"
+  ncen_index_shares: "SPDR Index Shares Funds N-CEN 2025-12-11, accession 0001410368-25-034454"
+  ncen_select_sector: "Select Sector SPDR Trust N-CEN 2025-12-11, accession 0001410368-25-034452"
+  ncen_spy: "SPDR S&P 500 ETF Trust N-CEN 2026-03-13, accession 0001410368-26-023904"
+  ncen_dia: "SPDR Dow Jones Industrial Average ETF Trust N-CEN 2026-03-13, accession 0001410368-26-023903"
+asset_classes:
+  us_large_cap_equity: {basket_cost_bps: 2.0, etf_half_spread_bps: 0.5, stale_nav: false}
+  us_small_mid_equity: {basket_cost_bps: 5.0, etf_half_spread_bps: 1.0, stale_nav: false}
+  us_treasury_bills: {basket_cost_bps: 1.0, etf_half_spread_bps: 0.5, stale_nav: false}
+  us_investment_grade_bond: {basket_cost_bps: 10.0, etf_half_spread_bps: 1.5, stale_nav: false}
+  us_high_yield_bond: {basket_cost_bps: 25.0, etf_half_spread_bps: 1.0, stale_nav: false}
+  intl_government_bond: {basket_cost_bps: 10.0, etf_half_spread_bps: 2.0, stale_nav: true}
+  em_local_bond: {basket_cost_bps: 30.0, etf_half_spread_bps: 3.0, stale_nav: true}
+  developed_intl_equity: {basket_cost_bps: 5.0, etf_half_spread_bps: 2.0, stale_nav: true}
+  em_equity: {basket_cost_bps: 10.0, etf_half_spread_bps: 2.0, stale_nav: true}
+funds:
+  SPY: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_spy, creation_fee_usd: 3000, fee_source: ncen_spy}
+  DIA: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_dia, creation_fee_usd: 1000, fee_source: ncen_dia}
+  XLB: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLE: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLF: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLI: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLK: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLP: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLV: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  XLY: {asset_class: us_large_cap_equity, creation_unit_shares: 50000, unit_source: ncen_select_sector, creation_fee_usd: 100, fee_source: sai_select_sector}
+  KRE: {asset_class: us_small_mid_equity, creation_unit_shares: 50000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 250, fee_source: sai_series_trust}
+  XOP: {asset_class: us_small_mid_equity, creation_unit_shares: 50000, unit_source: ncen_series_trust_2025_09, creation_fee_usd: 250, fee_source: sai_series_trust}
+  XBI: {asset_class: us_small_mid_equity, creation_unit_shares: 25000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 250, fee_source: sai_series_trust}
+  JNK: {asset_class: us_high_yield_bond, creation_unit_shares: 200000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 500, fee_source: sai_series_trust}
+  SJNK: {asset_class: us_high_yield_bond, creation_unit_shares: 300000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 500, fee_source: sai_series_trust}
+  SPAB: {asset_class: us_investment_grade_bond, creation_unit_shares: 100000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 500, fee_source: sai_series_trust}
+  SPSB: {asset_class: us_investment_grade_bond, creation_unit_shares: 100000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 500, fee_source: sai_series_trust}
+  BIL: {asset_class: us_treasury_bills, creation_unit_shares: 10000, unit_source: ncen_series_trust_2026_09, creation_fee_usd: 250, fee_source: sai_series_trust}
+  BWX: {asset_class: intl_government_bond, creation_unit_shares: 100000, unit_source: ncen_series_trust_2026_03, creation_fee_usd: 1500, fee_source: ncen_series_trust_2026_03}
+  EBND: {asset_class: em_local_bond, creation_unit_shares: 100000, unit_source: ncen_series_trust_2026_03, creation_fee_usd: 1500, fee_source: ncen_series_trust_2026_03}
+  SPDW: {asset_class: developed_intl_equity, creation_unit_shares: 100000, unit_source: ncen_index_shares, creation_fee_usd: 8000, fee_source: sai_index_shares}
+  SPEM: {asset_class: em_equity, creation_unit_shares: 100000, unit_source: ncen_index_shares, creation_fee_usd: 6000, fee_source: sai_index_shares}
+  FEZ: {asset_class: developed_intl_equity, creation_unit_shares: 50000, unit_source: ncen_index_shares, creation_fee_usd: 1500, fee_source: sai_index_shares}
+  GII: {asset_class: developed_intl_equity, creation_unit_shares: 50000, unit_source: ncen_index_shares, creation_fee_usd: 1000, fee_source: sai_index_shares}
+  GNR: {asset_class: developed_intl_equity, creation_unit_shares: 25000, unit_source: ncen_index_shares, creation_fee_usd: 1000, fee_source: sai_index_shares}

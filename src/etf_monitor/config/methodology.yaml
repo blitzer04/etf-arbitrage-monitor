@@ -1,0 +1,12 @@
+methodology_version: "1.0.0"
+calendar: XNYS
+exchange_calendars_version: "4.13.2"
+price_history_start: "2018-01-01"
+momentum_horizon_sessions: 252
+volatility_return_count: 21
+volatility_ddof: 1
+annualization_sessions: 252
+reference_window_sessions: 756
+minimum_reference_observations: 252
+percentile_method: midrank
+tie_rule: exact_float_equality

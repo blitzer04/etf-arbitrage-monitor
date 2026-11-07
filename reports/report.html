@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>ETF Arbitrage & Creation/Redemption Monitor</title>
+<style>
+@page { size: Letter; margin: 0.4in 0.45in; }
+body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 8.2pt; line-height: 1.28; color: #1d1d1f; margin: 0; }
+h1 { font-size: 15pt; margin: 0 0 2px; }
+.sub { color: #555; margin: 0 0 7px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 7px; }
+.kpi { border: 1px solid #d6dbe3; border-left: 4px solid #1f5fa8; padding: 5px 7px; border-radius: 3px; }
+.kpi b { font-size: 12.5pt; color: #1f5fa8; display: block; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.grid img { width: 100%; height: 2.05in; object-fit: contain; display: block; }
+.cap { font-size: 7.4pt; color: #555; margin: 1px 0 5px; }
+h2 { font-size: 9.6pt; margin: 6px 0 2px; color: #1f5fa8; }
+ul { margin: 0; padding-left: 14px; } li { margin: 1px 0; }
+.cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.foot { margin-top: 6px; font-size: 7.4pt; color: #555; border-top: 1px solid #ddd; padding-top: 4px; }
+code { font-size: 8pt; }
+</style></head><body>
+<h1>ETF Arbitrage &amp; Creation/Redemption Monitor</h1>
+<p class="sub">A daily monitor for 25 SPDR ETFs (U.S. equity, U.S. and international bond, international equity). It compares market price with official NAV and values the creation basket from issuer holdings. It models a cost-based arbitrage band and tests whether authorized participants (APs) create or redeem when the price leaves the band. Sample: Jan 2018 to Nov 2026, 55,575 fund-sessions.</p>
+<div class="kpis">
+ <div class="kpi"><b>12 of 13</b>U.S. equity baskets within 10 bps of NAV on two holdings snapshots, after fixing a one-session holdings timing offset. Before the fix, gaps reached +1,035 bps.</div>
+ <div class="kpi"><b>+18 to +26 pp</b>more creations after out-of-band premiums in high-yield, EM local and international government bond funds, compared with in-band sessions.</div>
+ <div class="kpi"><b>~+4 pp</b>for U.S. large-cap equity funds. Their 3 bps band is breached often but rarely draws AP flow, so most of those breaches are close-vs-NAV noise.</div>
+</div>
+<div class="grid">
+ <div><img src="figures/fig1_ap_response.png"><p class="cap">Share of out-of-band sessions followed by net creation (premium) or redemption (discount) within 5 sessions, minus the in-band rate. Monthly block bootstrap. *Only 43 discount events.</p></div>
+ <div><img src="figures/fig2_jnk_2020.png"><p class="cap">JNK went to a deep discount in March 2020, and shares outstanding fell about 40% as APs redeemed. It then moved to a sustained premium, and creations rebuilt the fund.</p></div>
+ <div><img src="figures/fig3_holdings_timing.png"><p class="cap">Basket value (shares held × component close + cash) vs NAV. Holdings labelled "As of D" match the D+1 share count and NAV. The large same-session gaps are timing, not mispricing.</p></div>
+ <div><img src="figures/fig4_split.png"><p class="cap">Yahoo back-adjusts closes for splits, but the issuer's NAV history does not. Without the correction, every pre-split session shows a fake −5,000 bps discount.</p></div>
+</div>
+<div class="cols">
+<div>
+<h2>Method</h2>
+<ul>
+ <li><b>Data:</b> SSGA NAV, shares outstanding and daily holdings, captured by a GitHub Actions job as immutable vintages with SHA-256 manifests. Yahoo prices. Creation fees and unit sizes from SEC Form N-CEN and SAI filings.</li>
+ <li><b>Premium/discount</b> = split-corrected as-traded close / NAV − 1. <b>Flow proxy</b> = Δ shares outstanding × NAV. This is an estimate, not reported fund flow.</li>
+ <li><b>Band</b> = fixed creation fee in bps of a creation unit, plus basket trading cost, plus ETF half-spread, by asset class. Each session is tagged premium, discount or inside. Sessions are also flagged as persistent and, for international funds, as stale NAV.</li>
+ <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 341 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
+</ul>
+</div>
+<div>
+<h2>Data-quality findings and limitations</h2>
+<ul>
+ <li>Holdings files are latest-only and are labelled one session early. History has to be captured going forward and aligned to D+1.</li>
+ <li>The Abdi–Ranaldo spread estimator was rejected as a band input. It returned zero in 37–54% of windows and gave SPY a 16 bps median spread, versus a quoted spread under 1 bp.</li>
+ <li>Results are descriptive, not causal, and not a trading signal. The 5-session windows overlap. The flow proxy includes creations and redemptions that are not arbitrage. Band width depends on the assumed basket costs and half-spreads.</li>
+ <li>International funds have stale NAVs (foreign closes). Independent basket fair value covers U.S. equity funds only. XLP's ≈ −50 bps residual repeats on both snapshots and is not yet explained.</li>
+</ul>
+</div>
+</div>
+<p class="foot">Code, tests and methodology: github.com/blitzer04/etf-arbitrage-monitor. Raw provider data (SSGA, Yahoo) is not redistributed. All figures are derived aggregates.</p>
+</body></html>

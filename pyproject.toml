@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "etf-monitor"
+version = "0.1.0"
+description = "Local research scaffold for U.S. ETF crowding and overheating diagnostics."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "exchange-calendars==4.13.2",
+    "numpy>=1.26,<2",
+    "openpyxl>=3.1,<4",
+    "pandas>=2.2,<3",
+    "plotly",
+    "pyarrow>=17,<20",
+    "PyYAML",
+    "streamlit",
+]
+
+[project.scripts]
+etf-monitor = "etf_monitor.cli:main"
+
+[dependency-groups]
+dev = [
+    "hypothesis",
+    "mypy",
+    "pandas-stubs",
+    "pytest",
+    "ruff",
+    "types-openpyxl>=3.1.5.20261017",
+    "types-PyYAML",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"etf_monitor.config" = ["*.yaml"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "B"]
+
+[tool.mypy]
+python_version = "3.12"
+disallow_untyped_defs = true
+warn_return_any = true
+warn_unused_configs = true
+files = ["src/etf_monitor", "app", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["exchange_calendars"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["plotly", "plotly.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-config --strict-markers"
+testpaths = ["tests"]
+xfail_strict = true
+filterwarnings = ["error"]

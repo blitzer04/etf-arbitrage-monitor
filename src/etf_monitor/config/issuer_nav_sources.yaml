@@ -1,0 +1,41 @@
+# Daily NAV / shares-outstanding source per ETF, reviewed 2026-11-03.
+# A null source means no machine-readable daily history was located; the
+# ETF is reported as unavailable and nothing is estimated for it.
+sources_version: 1
+funds:
+  SPY: {source: ssga_navhist_xlsx, reason: null}
+  QQQ: {source: null, reason: "Invesco download endpoints returned HTTP 406 to a scripted request"}
+  IWM: {source: null, reason: "iShares fund-data download URLs tried returned the HTML product page"}
+  DIA: {source: ssga_navhist_xlsx, reason: null}
+  VTI: {source: null, reason: "Vanguard: no public daily NAV/shares-outstanding history file located"}
+  XLK: {source: ssga_navhist_xlsx, reason: null}
+  VGT: {source: null, reason: "Vanguard: no public daily NAV/shares-outstanding history file located"}
+  SMH: {source: null, reason: "VanEck download URL tried entered a redirect loop"}
+  SOXX: {source: null, reason: "iShares fund-data download URLs tried returned the HTML product page"}
+  IGV: {source: null, reason: "iShares fund-data download URLs tried returned the HTML product page"}
+  XLF: {source: ssga_navhist_xlsx, reason: null}
+  KRE: {source: ssga_navhist_xlsx, reason: null}
+  XLE: {source: ssga_navhist_xlsx, reason: null}
+  XOP: {source: ssga_navhist_xlsx, reason: null}
+  XLV: {source: ssga_navhist_xlsx, reason: null}
+  XBI: {source: ssga_navhist_xlsx, reason: null}
+  XLY: {source: ssga_navhist_xlsx, reason: null}
+  XLP: {source: ssga_navhist_xlsx, reason: null}
+  XLI: {source: ssga_navhist_xlsx, reason: null}
+  XLB: {source: ssga_navhist_xlsx, reason: null}
+  ARKK: {source: null, reason: "ARK publishes current holdings CSV only; no NAV/shares history file located"}
+  TAN: {source: null, reason: "Invesco download endpoints returned HTTP 406 to a scripted request"}
+  ICLN: {source: null, reason: "iShares fund-data download URLs tried returned the HTML product page"}
+  LIT: {source: null, reason: "Global X: no machine-readable NAV/shares history file located"}
+  JNK: {source: ssga_navhist_xlsx, reason: null}
+  SJNK: {source: ssga_navhist_xlsx, reason: null}
+  SPAB: {source: ssga_navhist_xlsx, reason: null}
+  SPSB: {source: ssga_navhist_xlsx, reason: null}
+  BIL: {source: ssga_navhist_xlsx, reason: null}
+  BWX: {source: ssga_navhist_xlsx, reason: null}
+  EBND: {source: ssga_navhist_xlsx, reason: null}
+  SPDW: {source: ssga_navhist_xlsx, reason: null}
+  SPEM: {source: ssga_navhist_xlsx, reason: null}
+  FEZ: {source: ssga_navhist_xlsx, reason: null}
+  GII: {source: ssga_navhist_xlsx, reason: null}
+  GNR: {source: ssga_navhist_xlsx, reason: null}
