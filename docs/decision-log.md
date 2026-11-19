@@ -193,6 +193,48 @@ NAV vintage captured 2026-11-05 20:25 UTC.
   prove it for every future file; the private capture process keeps adding
   snapshots.
 
+### Gate 9 follow-up: ten snapshots and ex-dividend drift (2026-11-18)
+
+- Inputs: ten holdings snapshots labelled 2026-11-02 and 2026-11-04 through
+  2026-11-16 (consecutive sessions from 11-04; the daily capture started on
+  11-06, so 11-03 was never captured), each valued with the component vintage
+  captured in the same run, and NAV vintage `nav-20261118T101802271179Z`.
+  Reproduce with `basket-history` (`summary.json` records every input path).
+- All 130 `next_session` fund-sessions are `ok`. |`basket_vs_nav_bps`| is at
+  most 5 bps for 56, 10 bps for 97, 15 bps for 123, and 30 bps for 128. The
+  two above 30 bps are XLP in the first two snapshots (−51.6 and −50.3).
+- The "12 of 13 within 10 bps" result held for the first two snapshots only.
+  Funds within 10 bps fall from 12 to 7 across the ten snapshots because gaps
+  drift negative: XLE −7.3 to −25.6, XOP +1.5 to −26.0, KRE −2.6 to −16.6,
+  XLB −3.3 to −14.7.
+- Cause: ex-dividend receivables. On an ex-date the component close drops by
+  the dividend, NAV books a dividend receivable, and the holdings file does not
+  list it. `ex_dividend_bps` sums quantity × Yahoo dividend (split-corrected to
+  as-traded) for ex-dates after the previous snapshot's valuation date and up
+  to this one. For the 18 fund-intervals with `ex_dividend_bps` ≥ 2,
+  `gap_change_bps + ex_dividend_bps` has median 0.18 bps (median absolute
+  0.24 bps). Intervals with no ex-dates have median |`gap_change_bps`| 0.22 bps.
+  Examples: XOP −8.9 against 9.0, XLB −6.7 against 6.8.
+- Dividend cash lifts the gap back when it arrives. XLE on 2026-11-16: XOM and
+  COP went ex (20.1 bps) but the gap moved only −13.3 bps; the cash line rose
+  6.5 bps (`cash_change_bps`) the same day. Payment dates are not in the Yahoo
+  payload, so the outstanding receivable balance, and hence the level of each
+  gap, is not modelled; only interval changes are tested.
+- Correction to the timing note above: XLP's −50 bps is not systematic. From
+  the 2026-11-05 snapshot on, XLP is −6 to −14 bps like the other funds. The
+  two early gaps look like separate one-off items (inference, not verified):
+  in the 11-02 file every XLP quantity is 3.68% above the 11-05 file while
+  reported shares outstanding are 4.12% above, so the holdings cover about
+  0.4% fewer fund shares (about −42 bps); the 11-04 file has a −$47.2M USD
+  cash line (−31 bps of net assets) and no money-market line.
+- Capture timing: the cron is nominally 02:17 UTC, but GitHub started every
+  scheduled run between 08:53 and 10:48 UTC. Each run therefore captured the
+  holdings labelled D−1 together with the NAV and closes for session D, which
+  is everything one `next_session` check needs. No label was missed.
+- Implication for the band: the U.S. equity bands (about 3 bps) are smaller
+  than this drift, so a `next_session` basket gap is not by itself evidence of
+  a dislocation until receivables are accounted for.
+
 ## Gate 10: cost-based arbitrage band and AP response (2026-11-05)
 
 **Band.** `band_bps = fee_bps + basket_cost_bps + half_spread_bps`, one-way, in

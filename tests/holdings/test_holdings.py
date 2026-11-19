@@ -15,6 +15,7 @@ from etf_monitor.arbitrage.basket import (
     classify_lines,
     required_symbols,
 )
+from etf_monitor.arbitrage.dividends import DividendEvent
 from etf_monitor.arbitrage.splits import SplitEvent
 from etf_monitor.holdings.acquire import HoldingsBatchResult, fetch_holdings_batch
 from etf_monitor.holdings.component_prices import (
@@ -248,7 +249,16 @@ class _ChartTransport:
 
 
 def test_component_vintage_round_trip(tmp_path: Path) -> None:
-    payload = json.dumps(build_yahoo_chart_payload("AAA", ("2024-07-03",))).encode()
+    chart = build_yahoo_chart_payload("AAA", ("2024-07-03",))
+    chart["chart"]["result"][0]["events"] = {
+        "dividends": {
+            "synthetic": {
+                "date": int(datetime(2024, 7, 3, 13, 30, tzinfo=UTC).timestamp()),
+                "amount": 0.5,
+            }
+        }
+    }
+    payload = json.dumps(chart).encode()
     batch = fetch_component_prices(
         ["AAA", "BBB-B", "AAA"],
         date(2024, 7, 1),
@@ -261,5 +271,31 @@ def test_component_vintage_round_trip(tmp_path: Path) -> None:
     loaded = load_component_vintage(path)
     pd.testing.assert_frame_equal(loaded.frame, batch.frame)
     assert loaded.failed_symbols == ("BBB-B",)
+    assert batch.dividends == loaded.dividends
+    assert loaded.dividends == (DividendEvent("AAA", date(2024, 7, 3), 0.5),)
     manifest = json.loads((path / "manifest.json").read_text())
     assert set(manifest["files"]) == {"raw/AAA.json"}
+
+
+def test_invalid_component_dividend_marks_chart_failed() -> None:
+    chart = build_yahoo_chart_payload("AAA", ("2024-07-03",))
+    chart["chart"]["result"][0]["events"] = {
+        "dividends": {
+            "synthetic": {
+                "date": int(datetime(2024, 7, 3, 13, 30, tzinfo=UTC).timestamp()),
+                "amount": 0,
+            }
+        }
+    }
+    batch = fetch_component_prices(
+        ["AAA"],
+        date(2024, 7, 1),
+        date(2024, 7, 6),
+        _ChartTransport({"AAA": json.dumps(chart).encode()}),
+        lambda: RETRIEVED,
+    )
+
+    assert batch.statuses[0].status == "failed"
+    assert batch.statuses[0].reason_code == "dividend_events"
+    assert batch.frame.empty
+    assert batch.dividends == ()

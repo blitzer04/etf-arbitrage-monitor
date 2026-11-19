@@ -170,6 +170,11 @@ uv run etf-monitor basket-value --universe core \
   --component-vintage data/component_prices/components-<batch-id> \
   --nav-vintage data/issuer_nav/core/nav-<batch-id> \
   --out data/basket_value/<name>
+uv run etf-monitor basket-history --universe core \
+  --snapshot data/holdings/core/holdings-<snapshot-1> data/component_prices/components-<components-1> \
+  --snapshot data/holdings/core/holdings-<snapshot-2> data/component_prices/components-<components-2> \
+  --nav-vintage data/issuer_nav/core/nav-<batch-id> \
+  --out data/basket_history/<name>
 ```
 
 `basket-value` is offline. For U.S.-only equity funds it values the
@@ -185,6 +190,15 @@ rights, earn-outs, and non-USD cash are excluded and reported as
 Fixed-income funds get only an `issuer_market_value` consistency check (the
 issuer's own market values per share against NAV), which is not an
 independent fair value. See `src/etf_monitor/arbitrage/basket.py`.
+`basket-history` compares `next_session` rows across paired holdings and
+component vintages, adding `gap_change_bps`, `ex_dividend_bps`,
+`cash_change_bps`, `residual_bps`, and `dividend_coverage` to show how the gap
+changes. NAV includes dividend receivables that the holdings file omits, so
+`next_session` gaps can drift down on ex-dates and recover when dividend cash
+arrives. When the component window does not cover an interval or a priced
+symbol failed, `dividend_coverage` is false and ex-dividend/residual values are
+missing. It writes `basket_history.csv` and a summary of gap thresholds and
+uncovered dividend intervals.
 
 ### Data capture
 

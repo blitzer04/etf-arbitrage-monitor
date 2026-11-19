@@ -13,6 +13,10 @@ import pandas as pd
 
 from etf_monitor.arbitrage.band import arbitrage_band
 from etf_monitor.arbitrage.basket import basket_fair_value, required_symbols
+from etf_monitor.arbitrage.basket_history import (
+    BasketHistorySnapshot,
+    basket_history,
+)
 from etf_monitor.arbitrage.costs import load_fund_costs
 from etf_monitor.arbitrage.flows import (
     creation_redemption_flow_proxy,
@@ -143,6 +147,14 @@ def _build_parser() -> argparse.ArgumentParser:
     basket.add_argument("--nav-vintage", required=True, type=Path)
     basket.add_argument("--universe", choices=_UNIVERSES, default="core")
     basket.add_argument("--out", required=True, type=Path)
+
+    history = commands.add_parser("basket-history")
+    history.add_argument(
+        "--snapshot", nargs=2, action="append", required=True, type=Path
+    )
+    history.add_argument("--nav-vintage", required=True, type=Path)
+    history.add_argument("--universe", choices=_UNIVERSES, default="core")
+    history.add_argument("--out", required=True, type=Path)
     return parser
 
 
@@ -336,6 +348,33 @@ def _write_basket_value(
     return out
 
 
+def _write_basket_history(
+    snapshot_paths: Sequence[tuple[Path, Path]],
+    nav_path: Path,
+    universe: Universe,
+    out: Path,
+) -> Path:
+    snapshots = [
+        BasketHistorySnapshot(
+            load_holdings_vintage(holdings_path, universe),
+            load_component_vintage(component_path),
+        )
+        for holdings_path, component_path in snapshot_paths
+    ]
+    history, summary = basket_history(
+        snapshots,
+        load_nav_vintage(nav_path, universe).frame,
+        nav_vintage=nav_path,
+        universe_sha256=universe.sha256,
+    )
+    out.mkdir(parents=True, exist_ok=False)
+    history.to_csv(out / "basket_history.csv", index=False)
+    (out / "summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+    )
+    return out
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run offline evaluation, bundle, or explicitly authorized fetch commands.
 
@@ -486,6 +525,16 @@ def main(argv: Sequence[str] | None = None) -> int:
                 _write_basket_value(
                     args.holdings_vintage,
                     args.component_vintage,
+                    args.nav_vintage,
+                    _universe(args.universe),
+                    args.out,
+                )
+            )
+            return 0
+        if args.command == "basket-history":
+            print(
+                _write_basket_history(
+                    tuple((pair[0], pair[1]) for pair in args.snapshot),
                     args.nav_vintage,
                     _universe(args.universe),
                     args.out,

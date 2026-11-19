@@ -7,12 +7,12 @@ symbol and are never requested.
 
 ``close`` is Yahoo's split-adjusted, not dividend-adjusted, regular-session
 close; split events from the same payload let callers recover the as-traded
-close on a past session (see :mod:`etf_monitor.arbitrage.splits`).
+close on a past session (see :mod:`etf_monitor.arbitrage.splits`). The raw
+payload also carries split-adjusted per-share cash dividends for basket history.
 """
 
 from __future__ import annotations
 
-import re
 from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass
 from datetime import date, datetime, time
@@ -22,11 +22,17 @@ from zoneinfo import ZoneInfo
 import numpy as np
 import pandas as pd
 
+from etf_monitor.arbitrage.dividends import (
+    DividendEvent,
+    DividendPayloadError,
+    dividend_events_from_chart,
+)
 from etf_monitor.arbitrage.splits import (
     SplitEvent,
     SplitPayloadError,
     split_events_from_chart,
 )
+from etf_monitor.holdings.symbols import yahoo_symbol as yahoo_symbol
 from etf_monitor.holdings.vintage import (
     VintageError,
     read_vintage_dir,
@@ -39,14 +45,6 @@ from etf_monitor.providers.yahoo_chart import ChartPayloadError, parse_chart_pay
 COMPONENT_VINTAGE_FORMAT_VERSION = 1
 COMPONENT_PRICE_COLUMNS = ("symbol", "date", "close")
 _NEW_YORK = ZoneInfo("America/New_York")
-_ISSUER_TICKER = re.compile(r"^[A-Z]{1,5}(\.[A-Z])?$")
-
-
-def yahoo_symbol(security_ticker: str | None) -> str | None:
-    """Map an issuer security ticker to a Yahoo symbol, or None if unmappable."""
-    if security_ticker is None or _ISSUER_TICKER.fullmatch(security_ticker) is None:
-        return None
-    return security_ticker.replace(".", "-")
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,7 +62,7 @@ class ComponentStatus:
 
 @dataclass(frozen=True, slots=True)
 class ComponentPriceBatch:
-    """Closes, split events, statuses, and raw payloads for one batch."""
+    """Closes, split/dividend events, statuses, and raw payloads for one batch."""
 
     batch_id: str
     started_at: datetime
@@ -73,6 +71,7 @@ class ComponentPriceBatch:
     statuses: tuple[ComponentStatus, ...]
     frame: pd.DataFrame
     splits: tuple[SplitEvent, ...]
+    dividends: tuple[DividendEvent, ...]
     raw_payloads: Mapping[str, bytes]
 
 
@@ -89,14 +88,15 @@ def empty_component_frame() -> pd.DataFrame:
 
 def component_rows_from_payload(
     raw: bytes, symbol: str, start: date, end_exclusive: date
-) -> tuple[pd.DataFrame, tuple[SplitEvent, ...]]:
-    """Parse one raw chart payload into closes and split events.
+) -> tuple[pd.DataFrame, tuple[SplitEvent, ...], tuple[DividendEvent, ...]]:
+    """Parse one raw chart payload into closes, splits, and dividends.
 
     Sessions whose close is null are dropped, so they stay missing downstream.
 
     Raises:
         ChartPayloadError: If the payload violates the chart contract.
         SplitPayloadError: If its split events are invalid.
+        DividendPayloadError: If its dividend events are invalid.
     """
     chart = parse_chart_payload(raw, symbol, start, end_exclusive)
     kept = [row for row in chart.observations if row.close is not None]
@@ -107,7 +107,11 @@ def component_rows_from_payload(
             "close": np.array([row.close for row in kept], dtype=np.float64),
         }
     )
-    return frame, split_events_from_chart(raw, symbol)
+    return (
+        frame,
+        split_events_from_chart(raw, symbol),
+        dividend_events_from_chart(raw, symbol),
+    )
 
 
 def _combine(
@@ -142,6 +146,7 @@ def fetch_component_prices(
     statuses: list[ComponentStatus] = []
     frames: list[pd.DataFrame] = []
     splits: list[SplitEvent] = []
+    dividends: list[DividendEvent] = []
     payloads: dict[str, bytes] = {}
     for symbol in sorted(set(symbols)):
         try:
@@ -157,11 +162,17 @@ def fetch_component_prices(
         payloads[symbol] = raw
         digest = sha256_hex(raw)
         try:
-            frame, events = component_rows_from_payload(
+            frame, split_events, dividend_events = component_rows_from_payload(
                 raw, symbol, start, end_exclusive
             )
-        except (ChartPayloadError, SplitPayloadError) as error:
+        except (
+            ChartPayloadError,
+            SplitPayloadError,
+            DividendPayloadError,
+        ) as error:
             reason = getattr(error, "reason_code", "split_events")
+            if isinstance(error, DividendPayloadError):
+                reason = "dividend_events"
             statuses.append(
                 ComponentStatus(
                     symbol, "failed", reason, str(error), retrieved_at, digest, 0
@@ -174,7 +185,8 @@ def fetch_component_prices(
             )
         )
         frames.append(frame)
-        splits.extend(events)
+        splits.extend(split_events)
+        dividends.extend(dividend_events)
     return ComponentPriceBatch(
         batch_id=started_at.strftime("%Y%m%dT%H%M%S%fZ"),
         started_at=started_at,
@@ -183,6 +195,7 @@ def fetch_component_prices(
         statuses=tuple(statuses),
         frame=_combine(frames),
         splits=tuple(splits),
+        dividends=tuple(dividends),
         raw_payloads=payloads,
     )
 
@@ -220,12 +233,15 @@ def write_component_vintage(batch: ComponentPriceBatch, root: Path) -> Path:
 
 @dataclass(frozen=True, slots=True)
 class ComponentVintage:
-    """A verified component-price vintage re-derived from raw payloads."""
+    """A verified component vintage re-derived from raw payloads."""
 
     path: Path
     manifest: dict[str, object]
+    start: date
+    end_exclusive: date
     frame: pd.DataFrame
     splits: tuple[SplitEvent, ...]
+    dividends: tuple[DividendEvent, ...]
     failed_symbols: tuple[str, ...]
 
 
@@ -244,12 +260,13 @@ def load_component_vintage(path: Path) -> ComponentVintage:
         raise VintageError("Manifest must list statuses.")
     frames: list[pd.DataFrame] = []
     splits: list[SplitEvent] = []
+    dividends: list[DividendEvent] = []
     failed: list[str] = []
     for status in statuses:
         if status["status"] != "success":
             failed.append(status["symbol"])
             continue
-        frame, events = component_rows_from_payload(
+        frame, split_events, dividend_events = component_rows_from_payload(
             payloads[f"raw/{status['symbol']}.json"],
             status["symbol"],
             start,
@@ -258,11 +275,15 @@ def load_component_vintage(path: Path) -> ComponentVintage:
         if len(frame) != status["row_count"]:
             raise VintageError(f"{status['symbol']} differs from its manifest status.")
         frames.append(frame)
-        splits.extend(events)
+        splits.extend(split_events)
+        dividends.extend(dividend_events)
     return ComponentVintage(
         path=path,
         manifest=manifest,
+        start=start,
+        end_exclusive=end_exclusive,
         frame=_combine(frames),
         splits=tuple(splits),
+        dividends=tuple(dividends),
         failed_symbols=tuple(failed),
     )
