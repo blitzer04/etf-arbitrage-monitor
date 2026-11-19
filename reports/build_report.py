@@ -1,14 +1,16 @@
 """Render the one-page case-study figures and HTML from derived Gate 8-10 outputs.
 
 Run from the private etf-monitor checkout root:
-    uv run --with matplotlib python build_report.py <out_dir>
-Reads only derived outputs under data/ (never re-fetches provider data).
+    uv run --with matplotlib python build_report.py <out_dir> \
+        --event-study-csv <private event_study.csv>
+Reads only derived outputs under data/ and the specified event-study input
+(never re-fetches provider data).
 The derived inputs under data/ are produced by the private pipeline and are not distributed.
 """
 
 from __future__ import annotations
 
-import sys
+import argparse
 from pathlib import Path
 
 import matplotlib
@@ -18,7 +20,13 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
 
-OUT = Path(sys.argv[1])
+parser = argparse.ArgumentParser()
+parser.add_argument("out_dir", type=Path)
+parser.add_argument("--event-study-csv", required=True, type=Path)
+args = parser.parse_args()
+
+OUT = args.out_dir
+EVENT_STUDY_CSV = args.event_study_csv
 FIG = OUT / "figures"
 FIG.mkdir(parents=True, exist_ok=True)
 plt.rcParams.update(
@@ -37,7 +45,9 @@ uplift = [
     ("U.S. large-cap (SPY, DIA, XL*)", 3.7, 1.5, 6.0, 4.5, 2.3, 6.9),
     ("U.S. small/mid (KRE, XOP, XBI)", 2.2, -1.7, 5.8, -3.0, -7.1, 1.2),
 ]
-fig, ax = plt.subplots(figsize=(4.6, 3.1))
+fig, (ax, event_ax) = plt.subplots(
+    1, 2, figsize=(4.6, 3.1), gridspec_kw={"width_ratios": [1.2, 1]}
+)
 y = range(len(uplift))
 for off, idx, color, label in (
     (-0.18, 1, BLUE, "Premium → creation"),
@@ -57,15 +67,51 @@ for off, idx, color, label in (
 ax.set_yticks(list(y), [u[0] for u in uplift])
 ax.invert_yaxis()
 ax.axvline(0, color="black", lw=0.6)
-ax.set_xlabel("Uplift vs in-band sessions (pp), 95% CI")
-fig.suptitle(
-    "AP response within 5 sessions of out-of-band print",
-    x=0.02,
-    ha="left",
-    fontsize=9.5,
-)
-ax.legend(frameon=False, fontsize=7.5, loc="lower right")
-fig.tight_layout()
+ax.set_title("Out-of-band response", loc="left", fontsize=7.5)
+ax.set_xlabel("Uplift (pp), 95% CI", fontsize=6.2)
+ax.tick_params(axis="both", labelsize=5.5)
+ax.legend(frameon=False, fontsize=5.5, loc="lower right")
+
+event_study = pd.read_csv(EVENT_STUDY_CSV)
+required_columns = {"group", "side", "k", "uplift", "lo", "hi"}
+if not required_columns.issubset(event_study.columns):
+    raise ValueError(f"Event-study input must contain {sorted(required_columns)}.")
+event_study = event_study.loc[
+    event_study["side"].eq("premium")
+    & event_study["group"].isin({"us_bond", "us_equity"})
+    & event_study["k"].between(-5, 5)
+]
+event_colors = {"us_bond": BLUE, "us_equity": RED}
+for group, label in (("us_bond", "U.S. bonds"), ("us_equity", "U.S. equity")):
+    rows = event_study.loc[event_study["group"].eq(group)].sort_values("k")
+    if rows["k"].tolist() != list(range(-5, 6)):
+        raise ValueError(
+            f"Event-study input must have one row per k=-5..5 for {group}."
+        )
+    uplift_pp = rows["uplift"].to_numpy(dtype=float) * 100
+    low_error = (rows["uplift"] - rows["lo"]).to_numpy(dtype=float) * 100
+    high_error = (rows["hi"] - rows["uplift"]).to_numpy(dtype=float) * 100
+    event_ax.errorbar(
+        rows["k"],
+        uplift_pp,
+        yerr=[low_error, high_error],
+        color=event_colors[group],
+        marker="o",
+        markersize=2.5,
+        linewidth=0.8,
+        elinewidth=0.7,
+        capsize=1.8,
+        label=label,
+    )
+event_ax.axhline(0, color="black", lw=0.6)
+event_ax.axvline(0.5, color=GREY, lw=0.8, ls="--")
+event_ax.set_title("Premium onsets", loc="left", fontsize=7.5)
+event_ax.set_xlabel("Sessions from onset (k)", fontsize=6.2)
+event_ax.set_ylabel("Creation uplift (pp)", fontsize=6.2)
+event_ax.set_xticks(range(-5, 6, 2))
+event_ax.tick_params(axis="both", labelsize=5.5)
+event_ax.legend(frameon=False, fontsize=5.5, loc="upper left")
+fig.tight_layout(w_pad=1.1)
 fig.savefig(FIG / "fig1_ap_response.png", dpi=220)
 plt.close(fig)
 

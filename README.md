@@ -8,6 +8,16 @@ A daily monitor for 25 SPDR ETFs that compares market price with official NAV, v
 - **+18 to +26 pp** more creations after out-of-band premiums in high-yield, EM local and international government bond funds, compared with in-band sessions.
 - **~+4 pp** for U.S. large-cap equity funds. Their 3 bps band is breached often but rarely draws AP flow, so most of those breaches are close-vs-NAV noise.
 
+Identification checks (`etf-monitor ap-identification`, `etf-monitor ap-6c11-did`):
+- U.S. bond creations jump one reported session after a premium onset, with no rise before it (post minus pre +4.6 pp, 95% CI 2.1 to 6.9).
+- The effect survives fund and date fixed effects and lagged flows. U.S. equity shows no response.
+- The discount side is confounded by redemptions that were already elevated before the onset.
+- The response scales with premium size but does not jump at the modelled cost band.
+- International premiums that U.S. market moves predict still draw some creations.
+- A Rule 6c-11 difference-in-differences failed its placebo test, so it is reported as a limitation, not as evidence.
+
+These results are consistent with AP arbitrage on the premium side. They are not causal proof.
+
 [Read the ETF arbitrage and creation/redemption monitor case study](reports/etf-arbitrage-monitor-case-study.pdf).
 
 ![Figure 1](reports/figures/fig1_ap_response.png)
@@ -288,3 +298,39 @@ redemption frequencies by asset class and by fund, and `summary.json`. Cost
 inputs and their EDGAR sources are in
 `src/etf_monitor/config/arbitrage_costs.yaml`; basket and spread costs are
 assumptions. See the Gate 10 entry in `docs/decision-log.md`.
+
+### AP-response causal-evidence checks
+
+`ap-identification` runs the event study, dose-response and local-RD checks,
+stale-NAV placebo, and two-way fixed-effect panel regressions on the v2 band
+and matching flow-proxy vintages. Its monthly block bootstrap uses seed
+20261118; date fixed effects absorb market returns and volatility. The command
+verifies that each flow directory matches the source recorded by its band run
+and writes six CSV tables plus `summary.json`.
+Regression rows below the specified fund/month/rank support thresholds remain
+in the output with `status=insufficient_support`; RD bootstrap intervals are
+reported only when at least 400 of 500 draws have full-rank designs.
+
+```text
+uv run etf-monitor ap-identification \
+  --arbitrage-band data/arbitrage_band/arbitrage-20261105-v2 \
+  --core-band data/arbitrage_band/core-20261105-v2 \
+  --arbitrage-flows data/premium_flows/arbitrage-20261105 \
+  --core-flows data/premium_flows/core-20261105 \
+  --out /path/to/ap-identification
+```
+
+`ap-6c11-did` estimates whether the sensitivity of bond-fund creation and
+redemption responses to signed cost-band multiples changed relative to core
+U.S. equity funds after Rule 6c-11 took effect on 2019-12-23. It reports
+fund-by-post and date fixed-effect estimates, dynamic half-year coefficients
+relative to 2018H1, and the specified robustness checks.
+
+```text
+uv run etf-monitor ap-6c11-did \
+  --arbitrage-band data/arbitrage_band/arbitrage-20261105-v2 \
+  --core-band data/arbitrage_band/core-20261105-v2 \
+  --arbitrage-flows data/premium_flows/arbitrage-20261105 \
+  --core-flows data/premium_flows/core-20261105 \
+  --out /path/to/ap-6c11-did
+```

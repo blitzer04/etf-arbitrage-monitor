@@ -9,7 +9,7 @@ h1 { font-size: 15pt; margin: 0 0 2px; }
 .kpi { border: 1px solid #d6dbe3; border-left: 4px solid #1f5fa8; padding: 5px 7px; border-radius: 3px; }
 .kpi b { font-size: 12.5pt; color: #1f5fa8; display: block; }
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
-.grid img { width: 100%; height: 2.05in; object-fit: contain; display: block; }
+.grid img { width: 100%; height: 1.62in; object-fit: contain; display: block; }
 .cap { font-size: 7.4pt; color: #555; margin: 1px 0 5px; }
 h2 { font-size: 9.6pt; margin: 6px 0 2px; color: #1f5fa8; }
 ul { margin: 0; padding-left: 14px; } li { margin: 1px 0; }
@@ -21,11 +21,11 @@ code { font-size: 8pt; }
 <p class="sub">A daily monitor for 25 SPDR ETFs (U.S. equity, U.S. and international bond, international equity). It compares market price with official NAV and values the creation basket from issuer holdings. It models a cost-based arbitrage band and tests whether authorized participants (APs) create or redeem when the price leaves the band. Sample: Jan 2018 to Nov 2026, 55,575 fund-sessions.</p>
 <div class="kpis">
  <div class="kpi"><b>128 of 130</b>basket-vs-NAV checks (13 U.S. equity funds, 10 daily holdings snapshots) within 30 bps after fixing a one-session holdings timing offset; before the fix, gaps reached +1,035 bps. Gap changes match ex-dividend receivables to a median 0.2 bps.</div>
- <div class="kpi"><b>+18 to +26 pp</b>more creations after out-of-band premiums in high-yield, EM local and international government bond funds, compared with in-band sessions.</div>
- <div class="kpi"><b>~+4 pp</b>for U.S. large-cap equity funds. Their 3 bps band is breached often but rarely draws AP flow, so most of those breaches are close-vs-NAV noise.</div>
+ <div class="kpi"><b>+18 to +26 pp</b>more creations after out-of-band premiums in high-yield, EM local and international government bond funds than in-band sessions. U.S. large-cap equity: about +4 pp; most breaches of its 3 bps band are close-vs-NAV noise.</div>
+ <div class="kpi"><b>+15 pp, no pre-trend</b>U.S. bond creations jump one reported session after a premium onset and do not rise before it (post minus pre +4.6 pp, 95% CI 2.1 to 6.9). U.S. equity shows no response. Holds with fund and date fixed effects.</div>
 </div>
 <div class="grid">
- <div><img src="figures/fig1_ap_response.png"><p class="cap">Share of out-of-band sessions followed by net creation (premium) or redemption (discount) within 5 sessions, minus the in-band rate. Monthly block bootstrap. *Only 43 discount events.</p></div>
+ <div><img src="figures/fig1_ap_response.png"><p class="cap">Left: share of out-of-band sessions followed by net creation (premium) or redemption (discount) within 5 sessions, minus the in-band rate. *Only 43 discount events. Right: creation rate around premium onsets, minus the in-band rate; k = 1 is the first session that can show a response (SSGA reports shares one session late). Monthly block bootstrap, 95% CI.</p></div>
  <div><img src="figures/fig2_jnk_2020.png"><p class="cap">JNK went to a deep discount in March 2020, and shares outstanding fell about 40% as APs redeemed. It then moved to a sustained premium, and creations rebuilt the fund.</p></div>
  <div><img src="figures/fig3_holdings_timing.png"><p class="cap">Basket value (shares held × D+1 close + cash) vs D+1 NAV. Gaps drift down as components go ex-dividend: NAV books the receivable, the holdings file does not list it. XLP's −50 bps in the first two files did not recur.</p></div>
  <div><img src="figures/fig4_split.png"><p class="cap">Yahoo back-adjusts closes for splits, but the issuer's NAV history does not. Without the correction, every pre-split session shows a fake −5,000 bps discount.</p></div>
@@ -37,7 +37,8 @@ code { font-size: 8pt; }
  <li><b>Data:</b> SSGA NAV, shares outstanding and daily holdings, captured by a GitHub Actions job as immutable vintages with SHA-256 manifests. Yahoo prices. Creation fees and unit sizes from SEC Form N-CEN and SAI filings.</li>
  <li><b>Premium/discount</b> = split-corrected as-traded close / NAV − 1. <b>Flow proxy</b> = Δ shares outstanding × NAV. This is an estimate, not reported fund flow.</li>
  <li><b>Band</b> = fixed creation fee in bps of a creation unit, plus basket trading cost, plus ETF half-spread, by asset class. Each session is tagged premium, discount or inside. Sessions are also flagged as persistent and, for international funds, as stale NAV.</li>
- <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 375 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
+ <li><b>Identification checks:</b> event study around premium and discount onsets; dose-response by band multiple with local-linear threshold tests at 0.5, 1, 1.5 and 2 times the band; a stale-NAV placebo that splits international premiums into a part predicted by U.S. market moves and a residual; two-way fixed-effects panels with lagged flows; a Rule 6c-11 difference-in-differences. Month-block bootstrap (500 draws) and month-clustered standard errors.</li>
+ <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 399 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
 </ul>
 </div>
 <div>
@@ -45,7 +46,7 @@ code { font-size: 8pt; }
 <ul>
  <li>Holdings files are latest-only and are labelled one session early. History has to be captured going forward and aligned to D+1.</li>
  <li>The Abdi–Ranaldo spread estimator was rejected as a band input. It returned zero in 37–54% of windows and gave SPY a 16 bps median spread, versus a quoted spread under 1 bp.</li>
- <li>Results are descriptive, not causal, and not a trading signal. The 5-session windows overlap. The flow proxy includes creations and redemptions that are not arbitrage. Band width depends on the assumed basket costs and half-spreads.</li>
+ <li>The premium-side evidence is consistent with AP arbitrage. It is not causal proof and not a trading signal. The discount side is confounded: redemptions are already elevated before discount onsets. The response rises smoothly with premium size but does not jump at the modelled band (U.S. bond threshold estimate at 1x: −6.2 pp), so the band is an assumption, not the APs' threshold. International premiums predicted by U.S. market moves still draw creations (0.84 vs 1.64 bps per bps for the residual). A Rule 6c-11 DiD failed its placebo (−116 at a fake 2018 date) and is not used. The flow proxy includes flows that are not arbitrage, and the 5-session windows overlap.</li>
  <li>International funds have stale NAVs (foreign closes). Independent basket fair value covers U.S. equity funds only. The basket model omits dividend receivables and accruals, and payment dates are not in the data, so only gap changes are reconciled, not levels. The basket sample is 10 snapshots (Nov 2026).</li>
 </ul>
 </div>
