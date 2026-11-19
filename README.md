@@ -4,7 +4,7 @@ A daily monitor for 25 SPDR ETFs that compares market price with official NAV, v
 
 ## Results
 
-- **12 of 13** U.S. equity baskets within 10 bps of NAV on two holdings snapshots, after fixing a one-session holdings timing offset. Before the fix, gaps reached +1,035 bps.
+- **128 of 130** basket-vs-NAV checks (13 U.S. equity funds, 10 daily holdings snapshots) within 30 bps after fixing a one-session holdings timing offset; before the fix, gaps reached +1,035 bps. Gap changes match ex-dividend receivables to a median 0.2 bps.
 - **+18 to +26 pp** more creations after out-of-band premiums in high-yield, EM local and international government bond funds, compared with in-band sessions.
 - **~+4 pp** for U.S. large-cap equity funds. Their 3 bps band is breached often but rarely draws AP flow, so most of those breaches are close-vs-NAV noise.
 

@@ -110,42 +110,39 @@ fig.tight_layout()
 fig.savefig(FIG / "fig2_jnk_2020.png", dpi=220)
 plt.close(fig)
 
-# Fig 3: holdings timing, same_session vs next_session for both snapshots.
-snaps = {
-    "As of 11-02": pd.read_csv(
-        "data/basket_value/core-20261102-nav1104/basket_value.csv"
-    ),
-    "As of 11-04": pd.read_parquet(
-        "data/basket_value/core-20261104-snapshot2/basket_value.parquet"
-    )
-    if Path("data/basket_value/core-20261104-snapshot2/basket_value.parquet").exists()
-    else pd.read_csv("data/basket_value/core-20261104-snapshot2/basket_value.csv"),
-}
-fig, ax = plt.subplots(figsize=(4.6, 3.1))
-tickers = sorted(snaps["As of 11-02"].ticker.unique())
-for (name, df), marker, off in zip(
-    snaps.items(), ("o", "^"), (-0.15, 0.15), strict=False
-):
-    ok = df[df.status == "ok"]
-    for align, color in (("same_session", GREY), ("next_session", BLUE)):
-        d = ok[ok.alignment == align].set_index("ticker").reindex(tickers)
-        ax.scatter(
-            d.basket_vs_nav_bps,
-            [i + off for i in range(len(tickers))],
-            marker=marker,
-            s=16,
-            color=color,
-            label=f"{'D (same session)' if align == 'same_session' else 'D+1 (next session)'}, {name}",
-        )
-ax.set_xscale("symlog", linthresh=10)
-ax.axvspan(-10, 10, color=BLUE, alpha=0.08)
-ax.set_yticks(range(len(tickers)), tickers)
-ax.invert_yaxis()
-ax.set_xlabel("Basket value vs NAV (bps, symlog; shaded ±10)", fontsize=8)
-ax.set_title("Holdings 'As of D' match the D+1 portfolio", loc="left", fontsize=9.5)
-ax.legend(
-    frameon=False, fontsize=6.5, ncol=2, loc="upper center", bbox_to_anchor=(0.45, -0.2)
+# Fig 3: next_session basket gaps over ten holdings snapshots, and the
+# ex-dividend receivable that explains their day-over-day changes.
+hist = pd.read_csv("data/basket_history/core-10snap/basket_history.csv")
+hist = hist[hist.status == "ok"].copy()
+hist["valuation_date"] = pd.to_datetime(hist["valuation_date"])
+dates = sorted(hist.valuation_date.unique())
+fig, (ax, bx) = plt.subplots(
+    1, 2, figsize=(4.6, 3.1), gridspec_kw={"width_ratios": [1.15, 1]}
 )
+for ticker, d in hist.groupby("ticker"):
+    x = [dates.index(v) for v in d.valuation_date]
+    color = RED if ticker == "XLP" else (BLUE if ticker == "XLE" else GREY)
+    ax.plot(x, d.basket_vs_nav_bps, color=color, lw=0.9 if color != GREY else 0.6,
+            alpha=1 if color != GREY else 0.6, marker="o", ms=1.8)
+ax.axhspan(-10, 10, color=BLUE, alpha=0.08)
+ax.text(1.3, -50.5, "XLP", color=RED, fontsize=6.5, va="center")
+ax.text(9.2, -25.6, "XLE", color=BLUE, fontsize=6.5, va="center")
+ax.set_xticks(range(len(dates)), [pd.Timestamp(v).strftime("%m-%d") for v in dates],
+              rotation=90, fontsize=6)
+ax.set_xlim(-0.5, 10.6)
+ax.set_ylabel("Basket vs NAV (bps)", fontsize=7.5)
+ax.set_xlabel("Valuation session (D+1)", fontsize=7)
+ax.set_title("13 funds x 10 snapshots", loc="left", fontsize=8.5)
+step = hist.dropna(subset=["gap_change_bps", "ex_dividend_bps"])
+bx.scatter(step.ex_dividend_bps, step.gap_change_bps, s=7, color=BLUE, alpha=0.7)
+lim = float(step.ex_dividend_bps.max()) + 1.5
+bx.plot([0, lim], [0, -lim], color=RED, lw=0.8, ls="--")
+bx.text(lim * 0.35, -lim * 0.9, "gap change = -ex-div", color=RED, fontsize=6)
+bx.set_xlabel("Ex-dividend in interval (bps)", fontsize=7.5)
+bx.set_ylabel("Gap change (bps)", fontsize=7.5)
+bx.set_title("Drift = dividend receivable", loc="left", fontsize=8.5)
+for a in (ax, bx):
+    a.tick_params(labelsize=6.5)
 fig.tight_layout()
 fig.savefig(FIG / "fig3_holdings_timing.png", dpi=220)
 plt.close(fig)
