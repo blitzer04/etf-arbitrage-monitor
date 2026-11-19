@@ -22,8 +22,14 @@ from etf_monitor.arbitrage.flows import (
     creation_redemption_flow_proxy,
     premium_flow_lead_lag,
 )
+from etf_monitor.arbitrage.identification import (
+    BOOTSTRAP_DRAWS,
+    BOOTSTRAP_SEED,
+    run_identification,
+)
 from etf_monitor.arbitrage.premium import premium_discount
 from etf_monitor.arbitrage.response import forward_share_response, summarize_response
+from etf_monitor.arbitrage.rule_6c11 import run_rule_6c11_did
 from etf_monitor.arbitrage.splits import SplitEvent, load_split_events
 from etf_monitor.arbitrage.spread import abdi_ranaldo_spread
 from etf_monitor.bundles import (
@@ -155,6 +161,20 @@ def _build_parser() -> argparse.ArgumentParser:
     history.add_argument("--nav-vintage", required=True, type=Path)
     history.add_argument("--universe", choices=_UNIVERSES, default="core")
     history.add_argument("--out", required=True, type=Path)
+
+    identification = commands.add_parser("ap-identification")
+    identification.add_argument("--arbitrage-band", required=True, type=Path)
+    identification.add_argument("--core-band", required=True, type=Path)
+    identification.add_argument("--arbitrage-flows", required=True, type=Path)
+    identification.add_argument("--core-flows", required=True, type=Path)
+    identification.add_argument("--out", required=True, type=Path)
+
+    rule_6c11 = commands.add_parser("ap-6c11-did")
+    rule_6c11.add_argument("--arbitrage-band", required=True, type=Path)
+    rule_6c11.add_argument("--core-band", required=True, type=Path)
+    rule_6c11.add_argument("--arbitrage-flows", required=True, type=Path)
+    rule_6c11.add_argument("--core-flows", required=True, type=Path)
+    rule_6c11.add_argument("--out", required=True, type=Path)
     return parser
 
 
@@ -375,6 +395,107 @@ def _write_basket_history(
     return out
 
 
+def _write_ap_identification(
+    arbitrage_band_path: Path,
+    core_band_path: Path,
+    arbitrage_flows_path: Path,
+    core_flows_path: Path,
+    out: Path,
+) -> Path:
+    if out.exists():
+        raise ValueError(f"Output directory already exists: {out}.")
+    _validate_premium_flow_source(arbitrage_band_path, arbitrage_flows_path)
+    _validate_premium_flow_source(core_band_path, core_flows_path)
+    arbitrage_band = pd.read_parquet(arbitrage_band_path / "arbitrage_band.parquet")
+    core_band = pd.read_parquet(core_band_path / "arbitrage_band.parquet")
+    arbitrage_flows = pd.read_parquet(arbitrage_flows_path / "flow_proxy.parquet")
+    core_flows = pd.read_parquet(core_flows_path / "flow_proxy.parquet")
+    costs, asset_classes = load_fund_costs()
+    core_universe = load_universe()
+    outputs, row_counts = run_identification(
+        arbitrage_band,
+        core_band,
+        arbitrage_flows,
+        core_flows,
+        asset_classes,
+        {ticker for ticker, cost in costs.items() if cost.stale_nav},
+        {etf.ticker for etf in core_universe.etfs},
+    )
+    out.mkdir(parents=True, exist_ok=False)
+    for name, frame in outputs.items():
+        frame.to_csv(out / f"{name}.csv", index=False)
+    summary = {
+        "inputs": {
+            "arbitrage_band": str(arbitrage_band_path),
+            "core_band": str(core_band_path),
+            "arbitrage_flows": str(arbitrage_flows_path),
+            "core_flows": str(core_flows_path),
+        },
+        "seed": BOOTSTRAP_SEED,
+        "draws": BOOTSTRAP_DRAWS,
+        "row_counts": row_counts,
+        "panel_note": "Market returns and volatility are absorbed by date fixed effects.",
+    }
+    (out / "summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+    )
+    return out
+
+
+def _write_ap_6c11_did(
+    arbitrage_band_path: Path,
+    core_band_path: Path,
+    arbitrage_flows_path: Path,
+    core_flows_path: Path,
+    out: Path,
+) -> Path:
+    if out.exists():
+        raise ValueError(f"Output directory already exists: {out}.")
+    _validate_premium_flow_source(arbitrage_band_path, arbitrage_flows_path)
+    _validate_premium_flow_source(core_band_path, core_flows_path)
+    outputs, summary = run_rule_6c11_did(
+        pd.read_parquet(arbitrage_band_path / "arbitrage_band.parquet"),
+        pd.read_parquet(core_band_path / "arbitrage_band.parquet"),
+        pd.read_parquet(arbitrage_flows_path / "flow_proxy.parquet"),
+        pd.read_parquet(core_flows_path / "flow_proxy.parquet"),
+    )
+    summary["inputs"] = {
+        "arbitrage_band": str(arbitrage_band_path),
+        "core_band": str(core_band_path),
+        "arbitrage_flows": str(arbitrage_flows_path),
+        "core_flows": str(core_flows_path),
+    }
+    out.mkdir(parents=True, exist_ok=False)
+    for name, frame in outputs.items():
+        frame.to_csv(out / f"{name}.csv", index=False)
+    (out / "did_summary.json").write_text(
+        json.dumps(summary, indent=2, sort_keys=True, allow_nan=False)
+    )
+    return out
+
+
+def _validate_premium_flow_source(band_dir: Path, flows_dir: Path) -> None:
+    summary_path = band_dir / "summary.json"
+    if not summary_path.is_file():
+        raise ValueError(f"Band summary does not exist: {summary_path}.")
+    try:
+        summary = json.loads(summary_path.read_text())
+    except json.JSONDecodeError as error:
+        raise ValueError(f"Band summary is invalid JSON: {summary_path}.") from error
+    if not isinstance(summary, dict):
+        raise ValueError(f"Band summary is not a JSON object: {summary_path}.")
+    source = summary.get("premium_flows")
+    if not isinstance(source, str):
+        raise ValueError(f"Band summary has no premium_flows source: {summary_path}.")
+    source_path = Path(source)
+    if not source_path.is_absolute():
+        source_path = Path.cwd() / source_path
+    if source_path.resolve() != flows_dir.resolve():
+        raise ValueError(
+            f"Flows directory {flows_dir} does not match the v2 band source {source!r}."
+        )
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     """Run offline evaluation, bundle, or explicitly authorized fetch commands.
 
@@ -537,6 +658,28 @@ def main(argv: Sequence[str] | None = None) -> int:
                     tuple((pair[0], pair[1]) for pair in args.snapshot),
                     args.nav_vintage,
                     _universe(args.universe),
+                    args.out,
+                )
+            )
+            return 0
+        if args.command == "ap-identification":
+            print(
+                _write_ap_identification(
+                    args.arbitrage_band,
+                    args.core_band,
+                    args.arbitrage_flows,
+                    args.core_flows,
+                    args.out,
+                )
+            )
+            return 0
+        if args.command == "ap-6c11-did":
+            print(
+                _write_ap_6c11_did(
+                    args.arbitrage_band,
+                    args.core_band,
+                    args.arbitrage_flows,
+                    args.core_flows,
                     args.out,
                 )
             )
