@@ -37,7 +37,7 @@ code { font-size: 8pt; }
  <li><b>Data:</b> SSGA NAV, shares outstanding and daily holdings, captured by a GitHub Actions job as immutable vintages with SHA-256 manifests. Yahoo prices. Creation fees and unit sizes from SEC Form N-CEN and SAI filings.</li>
  <li><b>Premium/discount</b> = split-corrected as-traded close / NAV − 1. <b>Flow proxy</b> = Δ shares outstanding × NAV. This is an estimate, not reported fund flow.</li>
  <li><b>Band</b> = fixed creation fee in bps of a creation unit, plus basket trading cost, plus ETF half-spread, by asset class. Each session is tagged premium, discount or inside. Sessions are also flagged as persistent and, for international funds, as stale NAV.</li>
- <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 341 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
+ <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 372 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
 </ul>
 </div>
 <div>

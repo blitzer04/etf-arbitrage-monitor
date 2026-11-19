@@ -122,13 +122,24 @@ fig, (ax, bx) = plt.subplots(
 for ticker, d in hist.groupby("ticker"):
     x = [dates.index(v) for v in d.valuation_date]
     color = RED if ticker == "XLP" else (BLUE if ticker == "XLE" else GREY)
-    ax.plot(x, d.basket_vs_nav_bps, color=color, lw=0.9 if color != GREY else 0.6,
-            alpha=1 if color != GREY else 0.6, marker="o", ms=1.8)
+    ax.plot(
+        x,
+        d.basket_vs_nav_bps,
+        color=color,
+        lw=0.9 if color != GREY else 0.6,
+        alpha=1 if color != GREY else 0.6,
+        marker="o",
+        ms=1.8,
+    )
 ax.axhspan(-10, 10, color=BLUE, alpha=0.08)
 ax.text(1.3, -50.5, "XLP", color=RED, fontsize=6.5, va="center")
 ax.text(9.2, -25.6, "XLE", color=BLUE, fontsize=6.5, va="center")
-ax.set_xticks(range(len(dates)), [pd.Timestamp(v).strftime("%m-%d") for v in dates],
-              rotation=90, fontsize=6)
+ax.set_xticks(
+    range(len(dates)),
+    [pd.Timestamp(v).strftime("%m-%d") for v in dates],
+    rotation=90,
+    fontsize=6,
+)
 ax.set_xlim(-0.5, 10.6)
 ax.set_ylabel("Basket vs NAV (bps)", fontsize=7.5)
 ax.set_xlabel("Valuation session (D+1)", fontsize=7)
