@@ -13,6 +13,7 @@ from etf_monitor.arbitrage.dividends import (
     DividendPayloadError,
     as_traded_dividends,
     dividend_events_from_chart,
+    dividends_on_share_basis,
     ex_dividend_value,
 )
 from etf_monitor.arbitrage.splits import SplitEvent
@@ -136,6 +137,13 @@ def test_as_traded_dividends_preserves_pre_split_capture_amount() -> None:
     dividends = (DividendEvent("AAA", date(2024, 1, 5), 1.0),)
 
     assert as_traded_dividends(dividends, ()) == dividends
+
+
+def test_dividends_on_share_basis_excludes_split_after_valuation_date() -> None:
+    dividends = (DividendEvent("AAA", date(2024, 1, 5), 1.0),)
+    splits = (SplitEvent("AAA", date(2024, 1, 8), 2, 1),)
+
+    assert dividends_on_share_basis(dividends, splits, date(2024, 1, 7)) == dividends
 
 
 def test_ex_dividend_value_uses_window_and_later_split_factor() -> None:

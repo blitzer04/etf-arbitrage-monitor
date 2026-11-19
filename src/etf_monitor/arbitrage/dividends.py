@@ -175,6 +175,50 @@ def as_traded_dividends(
     return tuple(result)
 
 
+def dividends_on_share_basis(
+    dividends: Sequence[DividendEvent],
+    splits: Sequence[SplitEvent],
+    through: date,
+) -> tuple[DividendEvent, ...]:
+    """Restate dividend amounts to the share basis in effect through a date.
+
+    Dividends are given in ex-date share units. Splits after the ex-date and
+    through ``through`` convert them to per-share amounts on the through-date
+    basis.
+
+    Args:
+        dividends: Dividend events already normalized to as-traded units.
+        splits: Validated split events for the covered snapshots.
+        through: Inclusive valuation date for the target share basis.
+
+    Returns:
+        Events with amounts expressed in the share basis at ``through``.
+    """
+    if not dividends:
+        return ()
+    through_splits = tuple(event for event in splits if event.date <= through)
+    factors = split_factors(
+        pd.Series([event.ticker for event in dividends], dtype="string"),
+        pd.Series(pd.to_datetime([event.ex_date for event in dividends])),
+        through_splits,
+    )
+    result: list[DividendEvent] = []
+    for event, factor in zip(dividends, factors, strict=True):
+        split_factor = float(factor)
+        if not math.isfinite(split_factor) or split_factor <= 0:
+            raise ValueError(
+                f"{event.ticker} dividend split factor is not finite and positive."
+            )
+        amount = event.amount / split_factor
+        if not math.isfinite(amount) or amount <= 0:
+            raise ValueError(
+                f"{event.ticker} valuation-basis dividend amount is not finite "
+                "and positive."
+            )
+        result.append(DividendEvent(event.ticker, event.ex_date, amount))
+    return tuple(result)
+
+
 def ex_dividend_value(
     holdings: pd.DataFrame,
     dividends: Sequence[DividendEvent],

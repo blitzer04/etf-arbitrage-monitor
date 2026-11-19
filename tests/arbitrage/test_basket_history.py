@@ -364,7 +364,7 @@ def test_basket_history_unions_pre_and_post_split_amounts(tmp_path: Path) -> Non
     )
 
     assert history.iloc[1]["ex_dividend_bps"] == pytest.approx(
-        10_000.0 * 100.0 / (10.1 * 100.0)
+        10_000.0 * 50.0 / (10.1 * 100.0)
     )
 
 
@@ -394,8 +394,34 @@ def test_later_vintage_split_does_not_adjust_earlier_only_dividend(
     )
 
     assert history.iloc[1]["ex_dividend_bps"] == pytest.approx(
-        10_000.0 * 100.0 / (10.1 * 100.0)
+        10_000.0 * 50.0 / (10.1 * 100.0)
     )
+
+
+def test_split_on_valuation_date_uses_valuation_share_basis(tmp_path: Path) -> None:
+    universe, snapshot_paths, nav_path = _history_inputs(tmp_path)
+    snapshots = _loaded_snapshots(universe, snapshot_paths)
+    current_frame = snapshots[1].holdings.frame.copy()
+    current_frame.loc[current_frame["security_ticker"].eq("AAA"), "quantity"] = 200.0
+    current_holdings = replace(snapshots[1].holdings, frame=current_frame)
+    current_components = replace(
+        snapshots[1].components,
+        dividends=(DividendEvent("AAA", date(2024, 7, 5), 0.5),),
+        splits=(SplitEvent("AAA", date(2024, 7, 8), 2, 1),),
+    )
+    history, _ = basket_history(
+        [
+            snapshots[0],
+            BasketHistorySnapshot(current_holdings, current_components),
+        ],
+        load_nav_vintage(nav_path, universe).frame,
+        nav_vintage=nav_path,
+        universe_sha256=universe.sha256,
+    )
+
+    expected_receivable = 200.0 * (1.0 / 2.0)
+    expected_ex_dividend_bps = 10_000.0 * expected_receivable / (10.1 * 100.0)
+    assert history.iloc[1]["ex_dividend_bps"] == pytest.approx(expected_ex_dividend_bps)
 
 
 def test_identical_dividends_across_vintages_are_counted_once(tmp_path: Path) -> None:

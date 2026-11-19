@@ -16,6 +16,7 @@ from etf_monitor.arbitrage.basket import basket_fair_value, classify_lines
 from etf_monitor.arbitrage.dividends import (
     DividendEvent,
     as_traded_dividends,
+    dividends_on_share_basis,
     ex_dividend_value,
 )
 from etf_monitor.arbitrage.splits import SplitEvent
@@ -59,7 +60,9 @@ def _dividend_union(
     return tuple(events[key][0] for key in sorted(events))
 
 
-def _validate_split_union(snapshots: Sequence[BasketHistorySnapshot]) -> None:
+def _split_union(
+    snapshots: Sequence[BasketHistorySnapshot],
+) -> tuple[SplitEvent, ...]:
     events: dict[tuple[str, date], tuple[SplitEvent, Path]] = {}
     for snapshot in snapshots:
         for event in snapshot.components.splits:
@@ -74,6 +77,7 @@ def _validate_split_union(snapshots: Sequence[BasketHistorySnapshot]) -> None:
                     f"in {previous[1]} and {snapshot.components.path}."
                 )
             events[key] = (event, snapshot.components.path)
+    return tuple(events[key][0] for key in sorted(events))
 
 
 def _validate_unique_as_of(snapshots: Sequence[BasketHistorySnapshot]) -> None:
@@ -137,9 +141,10 @@ def basket_history(
 
     Each snapshot is valued with its own component prices and split events, as
     in ``basket-value``. Dividend events are converted to as-traded amounts
-    using the splits from their own vintage before being unioned. An interval
-    without a complete component window or a successful priced symbol has
-    missing ex-dividend and residual values and false dividend coverage.
+    using the splits from their own vintage before being unioned, then restated
+    to the ending holdings' share basis for splits inside the interval. An
+    interval without a complete component window or a successful priced symbol
+    has missing ex-dividend and residual values and false dividend coverage.
 
     Args:
         snapshots: Ordered holdings/component vintage pairs.
@@ -157,7 +162,7 @@ def basket_history(
     if not snapshots:
         raise ValueError("At least one snapshot is required.")
     _validate_unique_as_of(snapshots)
-    _validate_split_union(snapshots)
+    all_splits = _split_union(snapshots)
     dividends = _dividend_union(snapshots)
 
     history_parts: list[pd.DataFrame] = []
@@ -233,11 +238,23 @@ def basket_history(
                 and denominator > 0
             ):
                 if has_dividend_coverage:
+                    interval_start = pd.Timestamp(previous["valuation_date"])
+                    interval_end = pd.Timestamp(current["valuation_date"])
+                    eligible_dividends = tuple(
+                        event
+                        for event in dividends
+                        if interval_start.date() < event.ex_date <= interval_end.date()
+                    )
+                    valuation_basis_dividends = dividends_on_share_basis(
+                        eligible_dividends,
+                        all_splits,
+                        interval_end.date(),
+                    )
                     receivables = ex_dividend_value(
                         fund_holdings,
-                        dividends,
-                        pd.Timestamp(previous["valuation_date"]),
-                        pd.Timestamp(current["valuation_date"]),
+                        valuation_basis_dividends,
+                        interval_start,
+                        interval_end,
                     )
                     if ticker_name in receivables.index:
                         history.at[current_index, "ex_dividend_bps"] = (
