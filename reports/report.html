@@ -20,14 +20,14 @@ code { font-size: 8pt; }
 <h1>ETF Arbitrage &amp; Creation/Redemption Monitor</h1>
 <p class="sub">A daily monitor for 25 SPDR ETFs (U.S. equity, U.S. and international bond, international equity). It compares market price with official NAV and values the creation basket from issuer holdings. It models a cost-based arbitrage band and tests whether authorized participants (APs) create or redeem when the price leaves the band. Sample: Jan 2018 to Nov 2026, 55,575 fund-sessions.</p>
 <div class="kpis">
- <div class="kpi"><b>12 of 13</b>U.S. equity baskets within 10 bps of NAV on two holdings snapshots, after fixing a one-session holdings timing offset. Before the fix, gaps reached +1,035 bps.</div>
+ <div class="kpi"><b>128 of 130</b>basket-vs-NAV checks (13 U.S. equity funds, 10 daily holdings snapshots) within 30 bps after fixing a one-session holdings timing offset; before the fix, gaps reached +1,035 bps. Gap changes match ex-dividend receivables to a median 0.2 bps.</div>
  <div class="kpi"><b>+18 to +26 pp</b>more creations after out-of-band premiums in high-yield, EM local and international government bond funds, compared with in-band sessions.</div>
  <div class="kpi"><b>~+4 pp</b>for U.S. large-cap equity funds. Their 3 bps band is breached often but rarely draws AP flow, so most of those breaches are close-vs-NAV noise.</div>
 </div>
 <div class="grid">
  <div><img src="figures/fig1_ap_response.png"><p class="cap">Share of out-of-band sessions followed by net creation (premium) or redemption (discount) within 5 sessions, minus the in-band rate. Monthly block bootstrap. *Only 43 discount events.</p></div>
  <div><img src="figures/fig2_jnk_2020.png"><p class="cap">JNK went to a deep discount in March 2020, and shares outstanding fell about 40% as APs redeemed. It then moved to a sustained premium, and creations rebuilt the fund.</p></div>
- <div><img src="figures/fig3_holdings_timing.png"><p class="cap">Basket value (shares held × component close + cash) vs NAV. Holdings labelled "As of D" match the D+1 share count and NAV. The large same-session gaps are timing, not mispricing.</p></div>
+ <div><img src="figures/fig3_holdings_timing.png"><p class="cap">Basket value (shares held × D+1 close + cash) vs D+1 NAV. Gaps drift down as components go ex-dividend: NAV books the receivable, the holdings file does not list it. XLP's −50 bps in the first two files did not recur.</p></div>
  <div><img src="figures/fig4_split.png"><p class="cap">Yahoo back-adjusts closes for splits, but the issuer's NAV history does not. Without the correction, every pre-split session shows a fake −5,000 bps discount.</p></div>
 </div>
 <div class="cols">
@@ -37,7 +37,7 @@ code { font-size: 8pt; }
  <li><b>Data:</b> SSGA NAV, shares outstanding and daily holdings, captured by a GitHub Actions job as immutable vintages with SHA-256 manifests. Yahoo prices. Creation fees and unit sizes from SEC Form N-CEN and SAI filings.</li>
  <li><b>Premium/discount</b> = split-corrected as-traded close / NAV − 1. <b>Flow proxy</b> = Δ shares outstanding × NAV. This is an estimate, not reported fund flow.</li>
  <li><b>Band</b> = fixed creation fee in bps of a creation unit, plus basket trading cost, plus ETF half-spread, by asset class. Each session is tagged premium, discount or inside. Sessions are also flagged as persistent and, for international funds, as stale NAV.</li>
- <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 341 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
+ <li><b>Engineering:</b> Python 3.12, pandas, strict mypy, ruff, 375 offline pytest tests on Ubuntu and Windows CI. No look-ahead and no forward-fill: missing inputs stay explicit statuses.</li>
 </ul>
 </div>
 <div>
@@ -46,7 +46,7 @@ code { font-size: 8pt; }
  <li>Holdings files are latest-only and are labelled one session early. History has to be captured going forward and aligned to D+1.</li>
  <li>The Abdi–Ranaldo spread estimator was rejected as a band input. It returned zero in 37–54% of windows and gave SPY a 16 bps median spread, versus a quoted spread under 1 bp.</li>
  <li>Results are descriptive, not causal, and not a trading signal. The 5-session windows overlap. The flow proxy includes creations and redemptions that are not arbitrage. Band width depends on the assumed basket costs and half-spreads.</li>
- <li>International funds have stale NAVs (foreign closes). Independent basket fair value covers U.S. equity funds only. XLP's ≈ −50 bps residual repeats on both snapshots and is not yet explained.</li>
+ <li>International funds have stale NAVs (foreign closes). Independent basket fair value covers U.S. equity funds only. The basket model omits dividend receivables and accruals, and payment dates are not in the data, so only gap changes are reconciled, not levels. The basket sample is 10 snapshots (Nov 2026).</li>
 </ul>
 </div>
 </div>

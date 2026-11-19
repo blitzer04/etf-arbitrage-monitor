@@ -48,7 +48,7 @@ import numpy as np
 import pandas as pd
 
 from etf_monitor.arbitrage.splits import SplitEvent, split_factors
-from etf_monitor.holdings.component_prices import yahoo_symbol
+from etf_monitor.holdings.symbols import yahoo_symbol
 from etf_monitor.xnys import next_session
 
 CASH_IDENTIFIERS = {"999USDZ92", "924QSGII3"}
