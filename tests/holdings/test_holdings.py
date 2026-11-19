@@ -271,6 +271,7 @@ def test_component_vintage_round_trip(tmp_path: Path) -> None:
     loaded = load_component_vintage(path)
     pd.testing.assert_frame_equal(loaded.frame, batch.frame)
     assert loaded.failed_symbols == ("BBB-B",)
+    assert loaded.successful_symbols == ("AAA",)
     assert batch.dividends == loaded.dividends
     assert loaded.dividends == (DividendEvent("AAA", date(2024, 7, 3), 0.5),)
     manifest = json.loads((path / "manifest.json").read_text())

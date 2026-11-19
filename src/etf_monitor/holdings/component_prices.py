@@ -243,6 +243,7 @@ class ComponentVintage:
     splits: tuple[SplitEvent, ...]
     dividends: tuple[DividendEvent, ...]
     failed_symbols: tuple[str, ...]
+    successful_symbols: tuple[str, ...]
 
 
 def load_component_vintage(path: Path) -> ComponentVintage:
@@ -262,6 +263,7 @@ def load_component_vintage(path: Path) -> ComponentVintage:
     splits: list[SplitEvent] = []
     dividends: list[DividendEvent] = []
     failed: list[str] = []
+    successful: list[str] = []
     for status in statuses:
         if status["status"] != "success":
             failed.append(status["symbol"])
@@ -274,6 +276,7 @@ def load_component_vintage(path: Path) -> ComponentVintage:
         )
         if len(frame) != status["row_count"]:
             raise VintageError(f"{status['symbol']} differs from its manifest status.")
+        successful.append(status["symbol"])
         frames.append(frame)
         splits.extend(split_events)
         dividends.extend(dividend_events)
@@ -286,4 +289,5 @@ def load_component_vintage(path: Path) -> ComponentVintage:
         splits=tuple(splits),
         dividends=tuple(dividends),
         failed_symbols=tuple(failed),
+        successful_symbols=tuple(successful),
     )

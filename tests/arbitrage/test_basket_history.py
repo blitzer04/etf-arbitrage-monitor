@@ -274,6 +274,7 @@ def test_basket_history_marks_failed_priced_symbol_uncovered(
     failed_components = replace(
         snapshots[1].components,
         failed_symbols=("AAA",),
+        successful_symbols=(),
     )
     history, summary = basket_history(
         [
@@ -288,6 +289,32 @@ def test_basket_history_marks_failed_priced_symbol_uncovered(
     row = history.iloc[1]
     assert not row["dividend_coverage"]
     assert pd.notna(row["gap_change_bps"])
+    assert pd.isna(row["ex_dividend_bps"])
+    assert pd.isna(row["residual_bps"])
+    assert summary["intervals_without_dividend_coverage"] == 1
+
+
+def test_basket_history_marks_unrequested_priced_symbol_uncovered(
+    tmp_path: Path,
+) -> None:
+    universe, snapshot_paths, nav_path = _history_inputs(tmp_path)
+    snapshots = _loaded_snapshots(universe, snapshot_paths)
+    unrequested_components = replace(
+        snapshots[1].components,
+        successful_symbols=(),
+    )
+    history, summary = basket_history(
+        [
+            snapshots[0],
+            BasketHistorySnapshot(snapshots[1].holdings, unrequested_components),
+        ],
+        load_nav_vintage(nav_path, universe).frame,
+        nav_vintage=nav_path,
+        universe_sha256=universe.sha256,
+    )
+
+    row = history.iloc[1]
+    assert not row["dividend_coverage"]
     assert pd.isna(row["ex_dividend_bps"])
     assert pd.isna(row["residual_bps"])
     assert summary["intervals_without_dividend_coverage"] == 1

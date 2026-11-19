@@ -119,7 +119,7 @@ def _dividend_interval_covered(
         for value in priced_lines["security_ticker"]
         if (symbol := yahoo_symbol(str(value))) is not None
     }
-    return not priced_symbols.intersection(components.failed_symbols)
+    return priced_symbols.issubset(components.successful_symbols)
 
 
 def _median_or_none(values: pd.Series) -> float | None:
