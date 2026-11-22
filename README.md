@@ -5,7 +5,7 @@ ETF's price drifts away from its NAV? This project builds a daily monitor for
 25 SPDR ETFs to answer that from public data, and separates real dislocations
 from the data and accounting artifacts that look like them.
 
-**[Read the one-page case study (PDF)](reports/etf-arbitrage-monitor-case-study.pdf)**
+**[Read the one-page case study (PDF)](reports/etf-arbitrage-monitor-case-study.pdf)** · **[Aggregate dashboard](https://blitzer04.github.io/etf-arbitrage-monitor/)**
 
 | Item | Detail |
 |---|---|
@@ -120,7 +120,9 @@ Run with `etf-monitor ap-identification` and `etf-monitor ap-6c11-did`.
 
 Raw or derived provider data is not redistributed. The daily capture of SSGA
 NAV/holdings and Yahoo prices runs in a private deployment; all figures here
-are derived aggregates. The only committed bundle, under `deploy/bundles/`, is
+are derived aggregates. The dashboard under `site/` reads only
+`site/data/public_aggregates.json`, a summary-statistics export with no
+per-session, per-security, price, NAV or holdings values. The only committed bundle, under `deploy/bundles/`, is
 synthetic and classified `FICTIONAL`.
 
 ## Repository layout
