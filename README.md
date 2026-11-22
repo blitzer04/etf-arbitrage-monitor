@@ -44,18 +44,18 @@ rebuilt the fund.*
 
 ## How it works
 
-```mermaid
-flowchart TD
-    A["SSGA NAV, shares outstanding, holdings"] --> V["Immutable vintages<br/>raw files + SHA-256 manifest"]
-    B["Yahoo prices and dividends"] --> V
-    V --> P["Premium/discount vs NAV"]
-    V --> K["Basket fair value from holdings"]
-    C["SEC creation fees"] --> D["Cost-based arbitrage band"]
-    P --> D
-    V --> F["Creation/redemption flow proxy<br/>change in shares outstanding"]
-    D --> R["AP response tests<br/>in-band vs out-of-band, event study, placebos, fixed effects"]
-    F --> R
-```
+1. **Capture**: SSGA NAV, shares outstanding and daily holdings, Yahoo prices
+   and dividends, stored as immutable vintages (raw files plus a SHA-256
+   manifest, re-validated on every load).
+2. **Align**: put every series on the XNYS session grid and correct splits,
+   holdings dates and reporting lags.
+3. **Value**: compute premium/discount and rebuild basket fair value from
+   holdings.
+4. **Band**: model the cost of arbitrage from SEC-filed creation fees, basket
+   trading costs and ETF half-spreads.
+5. **Test**: check whether shares outstanding respond when the premium leaves
+   the band.
+
 
 | Step | What it computes |
 |---|---|
