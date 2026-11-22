@@ -5,7 +5,10 @@
 This repository is the **U.S. ETF Crowding & Overheating Risk Monitor**, a
 quantitative-finance research project with a local Streamlit viewer. This is a
 public repository. Raw or derived provider data (SSGA, Yahoo, any vintage,
-parquet, xlsx, csv outputs) must not be committed to any branch. The daily
+parquet, xlsx, csv outputs) must not be committed to any branch. The one exception, approved by the owner,
+is `site/data/public_aggregates.json`: asset-class and fund-level summary
+statistics from the private `public-aggregates` export, with no per-session,
+per-security, price, NAV or holdings values. The daily
 capture workflow runs only in the private repository. Use Python 3.12. Treat
 methodological correctness, point-in-time data integrity, reproducibility, and
 clear communication of limitations as core product requirements.

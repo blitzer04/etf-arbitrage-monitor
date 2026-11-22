@@ -2,10 +2,10 @@
 
 Do ETF authorized participants (APs) actually create and redeem shares when an
 ETF's price drifts away from its NAV? This project builds a daily monitor for
-25 SPDR ETFs to answer that from public data, and separates real dislocations
+25 SPDR ETFs to answer that from issuer and market data, and separates real dislocations
 from the data and accounting artifacts that look like them.
 
-**[Read the one-page case study (PDF)](reports/etf-arbitrage-monitor-case-study.pdf)**
+**[Read the one-page case study (PDF)](reports/etf-arbitrage-monitor-case-study.pdf)** · **[Aggregate dashboard](https://blitzer04.github.io/etf-arbitrage-monitor/)**
 
 | Item | Detail |
 |---|---|
@@ -98,7 +98,7 @@ Run with `etf-monitor ap-identification` and `etf-monitor ap-6c11-did`.
 | Check | Result |
 |---|---|
 | Event-study pre-trends | U.S. bond creations do not rise before a premium onset and jump one reported session after it |
-| Fixed-effects panel | The premium effect survives fund and date fixed effects and lagged flows; U.S. equity shows no response |
+| Fixed-effects panel | The premium effect survives fund and date fixed effects and lagged flows; U.S. equity shows no statistically significant premium response |
 | Dose-response and cost threshold | The response rises with premium size but does not jump at the modelled cost band |
 | Stale-NAV placebo | International premiums predicted by U.S. market moves still draw some creations, less than the residual mispricing |
 | Discount side | Confounded: redemptions are already elevated before discount onsets |
@@ -110,17 +110,21 @@ Run with `etf-monitor ap-identification` and `etf-monitor ap-6c11-did`.
   arbitrage from other creation/redemption demand.
 - The band depends on cost assumptions, mainly basket trading cost and ETF
   half-spread.
-- Independent basket fair value covers U.S. equity funds only. International
-  funds have stale NAVs.
+- The public code values baskets for U.S. equity funds only. International
+  funds have stale NAVs; the dashboard's U.S.-close fair-value statistics come
+  from a private model with only SPY and EUR/USD factors (out-of-sample R² is
+  at or below zero for GII and GNR).
 - The basket model omits dividend receivables, so only gap changes are
   reconciled, not levels. The basket sample is 10 daily snapshots (Nov 2026).
 - Five-session response windows overlap.
 
 ## Data policy
 
-Raw or derived provider data is not redistributed. The daily capture of SSGA
+Raw provider data and per-security derived data are not redistributed. The daily capture of SSGA
 NAV/holdings and Yahoo prices runs in a private deployment; all figures here
-are derived aggregates. The only committed bundle, under `deploy/bundles/`, is
+are derived aggregates. The dashboard under `site/` reads only
+`site/data/public_aggregates.json`, a summary-statistics export with no
+per-session, per-security, price, NAV or holdings values. The only committed bundle, under `deploy/bundles/`, is
 synthetic and classified `FICTIONAL`.
 
 ## Repository layout

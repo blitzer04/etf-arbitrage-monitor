@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ETF Arbitrage Monitor - aggregate dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:#f6f7f9;color:#1d2330}
+header{background:#14213d;color:#fff;padding:20px 24px}
+header h1{margin:0;font-size:22px}header p{margin:6px 0 0;opacity:.85;font-size:14px}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.card{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:12px}
+.kpi .v{font-size:26px;font-weight:600}.kpi .l{font-size:13px;color:#5a6275}
+h2{font-size:17px;margin:4px 0 10px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid #e4e7ec;text-align:right}th:first-child,td:first-child{text-align:left}
+select{font-size:14px;padding:4px}.note{font-size:12px;color:#5a6275}
+ul.caveats{font-size:13px;color:#3b4252}
+</style>
+</head>
+<body>
+<header><h1>ETF Arbitrage &amp; Creation/Redemption Monitor</h1>
+<p>Aggregate results only. <a style="color:#9ecbff" href="https://github.com/blitzer04/etf-arbitrage-monitor">Code and case study</a> &middot; data through <span id="through"></span></p></header>
+<main>
+<div class="grid" id="kpis"></div>
+<div class="card"><h2>Share of fund-sessions outside the cost band, by month</h2>
+<label class="note">Asset class <select id="ac"></select></label>
+<canvas id="oob" height="110"></canvas>
+<p class="note">Cells built from fewer than 20 fund-sessions are not shown. Stale-NAV asset classes use the unadjusted NAV premium.</p></div>
+<div class="card"><h2>Net creations after out-of-band premiums vs in-band sessions</h2><canvas id="resp" height="110"></canvas>
+<p class="note">Share of sessions with a positive five-session change in shares outstanding (creation/redemption flow proxy).</p></div>
+<div class="card"><h2>Event study around premium onsets</h2><canvas id="es" height="110"></canvas><p class="note" id="esnote"></p></div>
+<div class="card"><h2>International fair value (U.S.-close)</h2><table id="fv"></table></div>
+<div class="card"><h2>Illustrative AP creation-unit economics</h2><table id="pnl"></table></div>
+<div class="card"><h2>Caveats</h2><ul class="caveats" id="cav"></ul></div>
+</main>
+<script>
+const f1=x=>x==null?'—':x.toFixed(1), pct=x=>x==null?null:100*x;
+function kpi(v,l){return `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`}
+function table(el,head,rows){el.innerHTML='<tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}
+fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
+  document.getElementById('through').textContent=d.meta.data_through;
+  const b=d.basket_check,u=d.event_study.uplift;
+  document.getElementById('kpis').innerHTML=
+    kpi(`${b.n_within_30bps} / ${b.n_checks}`,'basket-vs-NAV checks within 30 bps')+
+    kpi(`${b.exdiv_median_abs_residual_bps.toFixed(1)} bps`,'median ex-dividend residual')+
+    kpi(`+${u.estimate_pp.toFixed(1)} pp`,`event-study uplift, 95% CI ${u.ci_low_pp.toFixed(1)}–${u.ci_high_pp.toFixed(1)} (${u.n_events} onsets)`)+
+    kpi(d.meta.asset_classes.reduce((s,a)=>s+a.n_funds,0),'funds across '+d.meta.asset_classes.length+' asset classes');
+  const rows=d.monthly_by_asset_class, classes=[...new Set(rows.map(r=>r.asset_class))];
+  const sel=document.getElementById('ac'); sel.innerHTML=classes.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');
+  let c1,c2;
+  function draw(){const ac=sel.value,rs=rows.filter(r=>r.asset_class===ac),m=rs.map(r=>r.month);
+    c1&&c1.destroy();c2&&c2.destroy();
+    c1=new Chart(oob,{type:'line',data:{labels:m,datasets:[{label:'% outside band',data:rs.map(r=>pct(r.share_out_of_band)),borderColor:'#c0392b',pointRadius:2,spanGaps:false}]},options:{scales:{y:{title:{display:true,text:'%'}}}}});
+    c2=new Chart(resp,{type:'line',data:{labels:m,datasets:[
+      {label:'after out-of-band premium',data:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium)),borderColor:'#1f77b4',pointRadius:2},
+      {label:'after in-band session',data:rs.map(r=>pct(r.net_creation_share_after_in_band)),borderColor:'#999',pointRadius:2}]},options:{scales:{y:{title:{display:true,text:'% of sessions'}}}}});}
+  sel.value=classes.includes('us_high_yield_bond')?'us_high_yield_bond':classes[0]; sel.onchange=draw; draw();
+  const cols=['#1f77b4','#ff7f0e'];
+  const label={'us_bond:premium':'U.S. bond ETFs','us_equity:premium':'U.S. equity ETFs'};
+  const gs=d.event_study.groups.filter(g=>g.group in label);
+  new Chart(es,{type:'line',data:{labels:gs[0].points.map(p=>p.k),datasets:gs.flatMap((g,i)=>[
+    {label:`${label[g.group]}, premium onsets (${g.n_events})`,data:g.points.map(p=>p.mean_pp),borderColor:cols[i]},
+    {label:'95% CI',data:g.points.map(p=>p.ci_low_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,borderWidth:1},
+    {label:'95% CI',data:g.points.map(p=>p.ci_high_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,borderWidth:1}])},
+    options:{plugins:{legend:{labels:{filter:i=>i.text!=='95% CI'}}},scales:{x:{title:{display:true,text:'sessions relative to premium onset (k)'}},y:{title:{display:true,text:'pp'}}}}});
+  document.getElementById('esnote').textContent=`Uplift = mean over ${u.post_window} minus ${u.pre_window}.`;
+  table(document.getElementById('fv'),['Fund','OOS sessions','Sample','Premium std, NAV (bps)','Premium std, fair value (bps)','OOS R² (zero mean)'],
+    d.intl_fair_value.map(r=>[r.fund,r.n_oos,`${r.sample_start} – ${r.sample_end}`,f1(r.std_premium_nav_bps),f1(r.std_premium_fv_bps),r.oos_r2_zero_mean.toFixed(3)]));
+  table(document.getElementById('pnl'),['Asset class','Basis','Sessions','Out of band','Median net per creation unit (USD)','Matched-flow share'],
+    d.ap_pnl.filter(r=>r.n_sessions>0).map(r=>[r.asset_class.replaceAll('_',' '),r.asset_class==='developed_intl_equity'?'fair value':'NAV',r.n_sessions.toLocaleString(),r.n_out_of_band.toLocaleString(),r.median_net_per_cu_usd==null?'—':'$'+r.median_net_per_cu_usd.toLocaleString(),r.matched_flow_share==null?'—':(100*r.matched_flow_share).toFixed(1)+'%']));
+  document.getElementById('cav').innerHTML=d.meta.caveats.map(c=>`<li>${c}</li>`).join('');
+});
+</script>
+</body>
+</html>
