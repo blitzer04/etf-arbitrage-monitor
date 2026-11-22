@@ -7,7 +7,7 @@ from the data and accounting artifacts that look like them.
 
 **[Read the one-page case study (PDF)](reports/etf-arbitrage-monitor-case-study.pdf)**
 
-| | |
+| Item | Detail |
 |---|---|
 | Universe | 25 SPDR ETFs: U.S. equity, U.S. and international bond, international equity |
 | Sample | Jan 2018 to Nov 2026, 55,575 fund-sessions |
@@ -44,20 +44,17 @@ rebuilt the fund.*
 
 ## How it works
 
-```text
-Issuer NAV, shares outstanding, holdings      Yahoo prices, dividends      SEC creation fees
-                 |                                      |                          |
-                 v                                      v                          |
-   Immutable vintages (raw files + SHA-256 manifest, re-validated on load)        |
-                 |                                                                  |
-                 v                                                                  v
-   Premium/discount vs NAV  ->  Basket fair value from holdings  ->  Cost-based arbitrage band
-                 |
-                 v
-   Creation/redemption flow proxy (change in shares outstanding)
-                 |
-                 v
-   AP response tests: in-band vs out-of-band, event study, placebos, fixed effects
+```mermaid
+flowchart TD
+    A["SSGA NAV, shares outstanding, holdings"] --> V["Immutable vintages<br/>raw files + SHA-256 manifest"]
+    B["Yahoo prices and dividends"] --> V
+    V --> P["Premium/discount vs NAV"]
+    V --> K["Basket fair value from holdings"]
+    C["SEC creation fees"] --> D["Cost-based arbitrage band"]
+    P --> D
+    V --> F["Creation/redemption flow proxy<br/>change in shares outstanding"]
+    D --> R["AP response tests<br/>in-band vs out-of-band, event study, placebos, fixed effects"]
+    F --> R
 ```
 
 | Step | What it computes |
