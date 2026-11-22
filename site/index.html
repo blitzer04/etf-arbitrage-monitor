@@ -52,10 +52,10 @@ fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
   let c1,c2;
   function draw(){const ac=sel.value,rs=rows.filter(r=>r.asset_class===ac),m=rs.map(r=>r.month);
     c1&&c1.destroy();c2&&c2.destroy();
-    c1=new Chart(oob,{type:'line',data:{labels:m,datasets:[{label:'% outside band',data:rs.map(r=>pct(r.share_out_of_band)),borderColor:'#c0392b',pointRadius:0,spanGaps:false}]},options:{scales:{y:{title:{display:true,text:'%'}}}}});
+    c1=new Chart(oob,{type:'line',data:{labels:m,datasets:[{label:'% outside band',data:rs.map(r=>pct(r.share_out_of_band)),borderColor:'#c0392b',pointRadius:2,spanGaps:false}]},options:{scales:{y:{title:{display:true,text:'%'}}}}});
     c2=new Chart(resp,{type:'line',data:{labels:m,datasets:[
-      {label:'after out-of-band premium',data:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium)),borderColor:'#1f77b4',pointRadius:0},
-      {label:'after in-band session',data:rs.map(r=>pct(r.net_creation_share_after_in_band)),borderColor:'#999',pointRadius:0}]},options:{scales:{y:{title:{display:true,text:'% of sessions'}}}}});}
+      {label:'after out-of-band premium',data:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium)),borderColor:'#1f77b4',pointRadius:2},
+      {label:'after in-band session',data:rs.map(r=>pct(r.net_creation_share_after_in_band)),borderColor:'#999',pointRadius:2}]},options:{scales:{y:{title:{display:true,text:'% of sessions'}}}}});}
   sel.value=classes.includes('us_high_yield_bond')?'us_high_yield_bond':classes[0]; sel.onchange=draw; draw();
   const cols=['#1f77b4','#ff7f0e'];
   const label={'us_bond:premium':'U.S. bond ETFs','us_equity:premium':'U.S. equity ETFs'};
