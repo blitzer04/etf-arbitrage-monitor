@@ -49,22 +49,38 @@ fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
     kpi(d.meta.asset_classes.reduce((s,a)=>s+a.n_funds,0),'funds across '+d.meta.asset_classes.length+' asset classes');
   const rows=d.monthly_by_asset_class, classes=[...new Set(rows.map(r=>r.asset_class))];
   const sel=document.getElementById('ac'); sel.innerHTML=classes.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');
+  Chart.defaults.interaction={mode:'index',intersect:false};
+  Chart.defaults.elements.point.hoverRadius=5;
+  Object.assign(Chart.defaults.plugins.tooltip,{backgroundColor:'rgba(17,24,39,.92)',padding:10,bodySpacing:4});
+  const fmtPct=v=>v==null?'not shown (<20 fund-sessions)':v.toFixed(1)+'%';
+  const extra=r=>[`Fund-sessions: ${r.n_fund_sessions.toLocaleString()}`].concat(r.median_abs_premium_bps==null?[]:[`Median |premium|: ${r.median_abs_premium_bps.toFixed(1)} bps`]).concat(r.basis==='nav_unadjusted'?['Basis: unadjusted NAV premium (stale NAV)']:[]);
+  const HOVER='_hover';
   let c1,c2;
   function draw(){const ac=sel.value,rs=rows.filter(r=>r.asset_class===ac),m=rs.map(r=>r.month);
     c1&&c1.destroy();c2&&c2.destroy();
-    c1=new Chart(oob,{type:'line',data:{labels:m,datasets:[{label:'% outside band',data:rs.map(r=>pct(r.share_out_of_band)),borderColor:'#c0392b',pointRadius:2,spanGaps:false}]},options:{scales:{y:{title:{display:true,text:'%'}}}}});
-    c2=new Chart(resp,{type:'line',data:{labels:m,datasets:[
-      {label:'after out-of-band premium',data:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium)),borderColor:'#1f77b4',pointRadius:2},
-      {label:'after in-band session',data:rs.map(r=>pct(r.net_creation_share_after_in_band)),borderColor:'#999',pointRadius:2}]},options:{scales:{y:{title:{display:true,text:'% of sessions'}}}}});}
+    // Index-mode hover skips null (suppressed) points, so every month gets a transparent, always-present
+    // anchor point; the tooltip is built from the month's row and the visible series, not from hovered items.
+    const monthChart=(canvas,series,yTitle)=>{const present=series.flatMap(s=>s.vals).filter(v=>v!=null),y=present.length?Math.min(...present):0;
+      return new Chart(canvas,{type:'line',data:{labels:m,datasets:series.map(s=>({label:s.label,data:s.vals,borderColor:s.color,pointRadius:2,spanGaps:false})).concat(
+        [{label:HOVER,data:m.map(()=>y),borderColor:'transparent',backgroundColor:'transparent',borderWidth:0,pointRadius:0,pointHoverRadius:0}])},
+        options:{plugins:{legend:{labels:{filter:i=>i.text!==HOVER}},tooltip:{displayColors:false,filter:c=>c.dataset.label===HOVER,callbacks:{
+          label:c=>series.filter((s,j)=>c.chart.isDatasetVisible(j)).map(s=>`${s.name}: ${fmtPct(s.vals[c.dataIndex])}`).concat(extra(rs[c.dataIndex]))}}},
+          scales:{y:present.length?{title:{display:true,text:yTitle}}:{min:0,max:100,title:{display:true,text:yTitle}}}}});};
+    c1=monthChart(oob,[{label:'% outside band',name:'Outside band',color:'#c0392b',vals:rs.map(r=>pct(r.share_out_of_band))}],'%');
+    c2=monthChart(resp,[
+      {label:'after out-of-band premium',name:'after out-of-band premium',color:'#1f77b4',vals:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium))},
+      {label:'after in-band session',name:'after in-band session',color:'#999',vals:rs.map(r=>pct(r.net_creation_share_after_in_band))}],'% of sessions');}
   sel.value=classes.includes('us_high_yield_bond')?'us_high_yield_bond':classes[0]; sel.onchange=draw; draw();
   const cols=['#1f77b4','#ff7f0e'];
   const label={'us_bond:premium':'U.S. bond ETFs','us_equity:premium':'U.S. equity ETFs'};
   const gs=d.event_study.groups.filter(g=>g.group in label);
   new Chart(es,{type:'line',data:{labels:gs[0].points.map(p=>p.k),datasets:gs.flatMap((g,i)=>[
     {label:`${label[g.group]}, premium onsets (${g.n_events})`,data:g.points.map(p=>p.mean_pp),borderColor:cols[i]},
-    {label:'95% CI',data:g.points.map(p=>p.ci_low_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,borderWidth:1},
-    {label:'95% CI',data:g.points.map(p=>p.ci_high_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,borderWidth:1}])},
-    options:{plugins:{legend:{labels:{filter:i=>i.text!=='95% CI'}}},scales:{x:{title:{display:true,text:'sessions relative to premium onset (k)'}},y:{title:{display:true,text:'pp'}}}}});
+    {label:'95% CI',data:g.points.map(p=>p.ci_low_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,pointHoverRadius:0,borderWidth:1},
+    {label:'95% CI',data:g.points.map(p=>p.ci_high_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,pointHoverRadius:0,borderWidth:1}])},
+    options:{plugins:{legend:{labels:{filter:i=>i.text!=='95% CI'}},tooltip:{filter:c=>c.dataset.label!=='95% CI',callbacks:{
+      title:it=>{if(!it.length)return [];const k=Number(it[0].label);return k===0?'k = 0 (onset session)':`k = ${k>0?'+':''}${k} (${Math.abs(k)} session${Math.abs(k)===1?'':'s'} ${k>0?'after':'before'} onset)`},
+      label:c=>{const p=gs[Math.floor(c.datasetIndex/3)].points[c.dataIndex];return `${label[gs[Math.floor(c.datasetIndex/3)].group]}: ${p.mean_pp>0?'+':''}${p.mean_pp.toFixed(1)} pp (95% CI ${p.ci_low_pp.toFixed(1)} to ${p.ci_high_pp.toFixed(1)})`}}}},scales:{x:{title:{display:true,text:'sessions relative to premium onset (k)'}},y:{title:{display:true,text:'pp'}}}}});
   document.getElementById('esnote').textContent=`Uplift = mean over ${u.post_window} minus ${u.pre_window}.`;
   table(document.getElementById('fv'),['Fund','OOS sessions','Sample','Premium std, NAV (bps)','Premium std, fair value (bps)','OOS R² (zero mean)'],
     d.intl_fair_value.map(r=>[r.fund,r.n_oos,`${r.sample_start} – ${r.sample_end}`,f1(r.std_premium_nav_bps),f1(r.std_premium_fv_bps),r.oos_r2_zero_mean.toFixed(3)]));
