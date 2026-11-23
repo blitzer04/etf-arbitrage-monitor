@@ -131,6 +131,7 @@ fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
       const p=i>0?s.vals[i-1]:null;
       return latestItem(s.name,monthLabel(all[i].month),s.vals[i].toFixed(1)+'%',i>0?`Previous (${all[i-1].month}): ${p==null?'not shown':p.toFixed(1)+'%'}`:'')}).join('')}
   function draw(){const ac=sel.value,all=rows.filter(r=>r.asset_class===ac),rs=all.filter(r=>inRange(r.month)),m=rs.map(r=>r.month),ss=series(rs);
+    const hidden=c1?c1.data.datasets.map((x,i)=>!c1.isDatasetVisible(i)):[];
     c1&&c1.destroy();
     document.getElementById('sub1').textContent=`${ac.replaceAll('_',' ')} · monthly · ${m.length?m[0]+' to '+m[m.length-1]:'no data'}`;
     // Index-mode hover skips null (suppressed) points, so every month gets a transparent, always-present
@@ -146,6 +147,7 @@ fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
         scales:{x:{grid:{display:false},ticks:{maxRotation:0,autoSkipPadding:18}},
           y:{position:'left',min:0,max:100,title:{display:true,text:'% of fund-sessions outside band'}},
           y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:'% of sessions with net creations'}}}}});
+    hidden.forEach((h,i)=>h&&c1.setDatasetVisibility(i,false));c1.update();
     sidebar(ac,all);}
   document.querySelectorAll('#range button').forEach(btn=>btn.onclick=()=>{range=btn.dataset.r==='all'||btn.dataset.r==='ytd'?btn.dataset.r:+btn.dataset.r;
     document.querySelectorAll('#range button').forEach(x=>x.classList.toggle('on',x===btn));draw()});
