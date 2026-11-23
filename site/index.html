@@ -52,7 +52,7 @@ ul.caveats{font-size:13px;color:#3b4252}
     <div class="csub" id="sub1"></div>
     <div class="range" id="range">Zoom <button data-r="all" class="on">All</button><button data-r="5">5y</button><button data-r="3">3y</button><button data-r="1">1y</button><button data-r="ytd">YTD</button></div>
     <div class="wrap"><div class="wm">ETF Arbitrage Monitor</div><canvas id="mon"></canvas></div>
-    <p class="note">Bars (left axis): share of fund-sessions outside the cost band. Lines (right axis): share of sessions followed by a positive five-session change in shares outstanding, a creation/redemption flow proxy. Shaded: NBER recession, Feb&ndash;Apr 2020. Cells built from fewer than 20 fund-sessions are not shown. Stale-NAV asset classes use the unadjusted NAV premium.</p>
+    <p class="note">Bars (left axis): share of fund-sessions outside the cost band. Lines (right axis): share of sessions followed by a positive five-session change in shares outstanding, a creation/redemption flow proxy. Shaded: NBER recession months, Mar&ndash;Apr 2020 (peak Feb 2020, trough Apr 2020). Cells built from fewer than 20 fund-sessions are not shown. Stale-NAV asset classes use the unadjusted NAV premium.</p>
   </div>
   <aside class="side">
     <label>Asset class<select id="ac"></select></label>
@@ -84,7 +84,7 @@ const f1=x=>x==null?'—':x.toFixed(1), pct=x=>x==null?null:100*x;
 function kpi(v,l){return `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`}
 function table(el,head,rows){el.innerHTML='<tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}
 function latestItem(name,when,val,prev){return `<div><div class="name">${name}</div><div class="when">${when}</div><div class="val">${val}</div><div class="prev">${prev}</div></div>`}
-const RECESSIONS=[['2020-02','2020-04']];
+const RECESSIONS=[['2020-03','2020-04']];
 // White background so downloaded PNGs are not transparent.
 const whiteBg={id:'whiteBg',beforeDraw:c=>{const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}};
 const shade={id:'shade',beforeDatasetsDraw:c=>{const s=c.scales.x,a=c.chartArea,L=c.data.labels;if(!L.length)return;
