@@ -6,41 +6,105 @@
 <title>ETF Arbitrage Monitor - aggregate dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-body{font-family:-apple-system,Segoe UI,Helvetica,Arial,sans-serif;margin:0;background:#f6f7f9;color:#1d2330}
-header{background:#14213d;color:#fff;padding:20px 24px}
-header h1{margin:0;font-size:22px}header p{margin:6px 0 0;opacity:.85;font-size:14px}
-main{max-width:1100px;margin:0 auto;padding:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
-.card{background:#fff;border-radius:8px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:12px}
-.kpi .v{font-size:26px;font-weight:600}.kpi .l{font-size:13px;color:#5a6275}
-h2{font-size:17px;margin:4px 0 10px}
-table{border-collapse:collapse;width:100%;font-size:13px}th,td{padding:6px 8px;border-bottom:1px solid #e4e7ec;text-align:right}th:first-child,td:first-child{text-align:left}
-select{font-size:14px;padding:4px}.note{font-size:12px;color:#5a6275}
+:root{--teal:#1a9f86;--bar:#3fa9d8;--line:#e4572e;--ink:#2b2f36;--muted:#6b7280;--side:#eceef1;--rule:#d5d9de}
+body{font-family:-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;margin:0;background:#f4f5f7;color:var(--ink)}
+header{background:#fff;border-bottom:3px solid var(--teal);padding:14px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;font-size:13px;color:var(--muted)}header a{color:var(--teal)}
+main{max-width:1240px;margin:0 auto;padding:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:16px}
+.kpi{background:#fff;border-left:4px solid var(--teal);border-radius:4px;padding:10px 14px;box-shadow:0 1px 2px rgba(0,0,0,.06)}
+.kpi .v{font-size:24px;font-weight:600}.kpi .l{font-size:12.5px;color:var(--muted)}
+.panel{display:grid;grid-template-columns:minmax(0,1fr) 320px;background:#fff;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px;overflow:hidden}
+.chartbox{padding:12px 16px 12px;min-width:0}
+.tools{display:flex;justify-content:flex-end;gap:6px}
+.btn{border:1px solid var(--teal);background:var(--teal);color:#fff;border-radius:3px;font-size:13px;padding:5px 10px;cursor:pointer}
+.ctitle{text-align:center;font-weight:700;font-size:17px;margin:6px 0 0}.csub{text-align:center;color:var(--muted);font-size:12.5px;margin:3px 0 8px}
+.range{font-size:13px;color:#555;margin:0 0 4px}.range button{border:0;background:none;padding:3px 8px;font-size:13px;color:#444;cursor:pointer;border-radius:3px}.range button.on{background:#4fd1b1;color:#fff}
+.wrap{position:relative;height:390px}
+.wm{position:absolute;left:72px;top:24px;font-size:26px;font-weight:700;color:rgba(26,159,134,.12);pointer-events:none;user-select:none}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0;line-height:1.5}
+.side{background:var(--side);padding:16px 18px;font-size:14px;line-height:1.6}
+.side p{margin:6px 0}.side select{font-size:14px;padding:4px;width:100%;margin-top:4px}
+.side h3{font-size:19px;font-weight:500;margin:16px 0 4px;border-top:1px solid var(--rule);padding-top:14px}
+.latest>div{border-bottom:1px solid var(--rule);padding:8px 0}
+.latest .name{color:var(--teal)}.latest .when{font-size:12px;color:var(--muted)}
+.latest .val{text-align:right;font-size:26px;line-height:1.2}.latest .prev{text-align:right;font-size:12px;color:var(--muted)}
+.card{background:#fff;border-radius:4px;padding:14px 16px;box-shadow:0 1px 3px rgba(0,0,0,.08);margin-bottom:16px}
+h2{font-size:17px;margin:2px 0 10px;border-left:4px solid var(--teal);padding-left:8px}
+table{border-collapse:collapse;width:100%;font-size:13px}th{background:#f1f5f4;color:#374151;font-weight:600}
+th,td{padding:7px 8px;border-bottom:1px solid #e4e7ec;text-align:right}th:first-child,td:first-child{text-align:left}
+.scroll{overflow-x:auto}
 ul.caveats{font-size:13px;color:#3b4252}
+.panel:fullscreen{overflow:auto}.panel:fullscreen .wrap{height:72vh}
+@media(max-width:860px){.kpis{grid-template-columns:1fr 1fr;gap:8px}.kpi .v{font-size:19px}.panel{grid-template-columns:1fr}.wrap{height:300px}.wm{font-size:18px;left:56px}}
 </style>
 </head>
 <body>
 <header><h1>ETF Arbitrage &amp; Creation/Redemption Monitor</h1>
-<p>Aggregate results only. <a style="color:#9ecbff" href="https://github.com/blitzer04/etf-arbitrage-monitor">Code and case study</a> &middot; data through <span id="through"></span></p></header>
+<p>Aggregate results only &middot; <a href="https://github.com/blitzer04/etf-arbitrage-monitor">Code and case study</a> &middot; data through <span id="through"></span></p></header>
 <main>
-<div class="grid" id="kpis"></div>
-<div class="card"><h2>Share of fund-sessions outside the cost band, by month</h2>
-<label class="note">Asset class <select id="ac"></select></label>
-<canvas id="oob" height="110"></canvas>
-<p class="note">Cells built from fewer than 20 fund-sessions are not shown. Stale-NAV asset classes use the unadjusted NAV premium.</p></div>
-<div class="card"><h2>Net creations after out-of-band premiums vs in-band sessions</h2><canvas id="resp" height="110"></canvas>
-<p class="note">Share of sessions with a positive five-session change in shares outstanding (creation/redemption flow proxy).</p></div>
-<div class="card"><h2>Event study around premium onsets</h2><canvas id="es" height="110"></canvas><p class="note" id="esnote"></p></div>
-<div class="card"><h2>International fair value (U.S.-close)</h2><table id="fv"></table></div>
-<div class="card"><h2>Illustrative AP creation-unit economics</h2><table id="pnl"></table></div>
+<div class="kpis" id="kpis"></div>
+
+<section class="panel" id="p1">
+  <div class="chartbox">
+    <div class="tools"><button class="btn" id="dl1">Download PNG</button><button class="btn fs" data-panel="p1">Full screen</button></div>
+    <div class="ctitle">Out-of-band premiums and net creations</div>
+    <div class="csub" id="sub1"></div>
+    <div class="range" id="range">Zoom <button data-r="all" class="on">All</button><button data-r="5">5y</button><button data-r="3">3y</button><button data-r="1">1y</button><button data-r="ytd">YTD</button></div>
+    <div class="wrap"><div class="wm">ETF Arbitrage Monitor</div><canvas id="mon"></canvas></div>
+    <p class="note">Bars (left axis): share of fund-sessions outside the cost band. Lines (right axis): share of sessions followed by a positive five-session change in shares outstanding, a creation/redemption flow proxy. Shaded: NBER recession, Feb&ndash;Apr 2020. Cells built from fewer than 20 fund-sessions are not shown. Stale-NAV asset classes use the unadjusted NAV premium.</p>
+  </div>
+  <aside class="side">
+    <label>Asset class<select id="ac"></select></label>
+    <p id="acdesc"></p>
+    <h3>Latest data</h3><div class="latest" id="latest"></div>
+  </aside>
+</section>
+
+<section class="panel" id="p2">
+  <div class="chartbox">
+    <div class="tools"><button class="btn" id="dl2">Download PNG</button><button class="btn fs" data-panel="p2">Full screen</button></div>
+    <div class="ctitle">Net creations around premium onsets</div>
+    <div class="csub">Event study &middot; uplift in pp with 95% CI</div>
+    <div class="wrap"><div class="wm">ETF Arbitrage Monitor</div><canvas id="es"></canvas></div>
+    <p class="note" id="esnote"></p>
+  </div>
+  <aside class="side">
+    <p>Each line is the uplift in the probability of net creations over the next five sessions, at session k relative to the onset of an out-of-band premium (k = 0). Shaded areas are 95% confidence intervals.</p>
+    <h3>Post minus pre</h3><div class="latest" id="eslatest"></div>
+  </aside>
+</section>
+
+<div class="card"><h2>International fair value (U.S.-close)</h2><div class="scroll"><table id="fv"></table></div></div>
+<div class="card"><h2>Illustrative AP creation-unit economics</h2><div class="scroll"><table id="pnl"></table></div></div>
 <div class="card"><h2>Caveats</h2><ul class="caveats" id="cav"></ul></div>
 </main>
 <script>
 const f1=x=>x==null?'—':x.toFixed(1), pct=x=>x==null?null:100*x;
-function kpi(v,l){return `<div class="card kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`}
+function kpi(v,l){return `<div class="kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`}
 function table(el,head,rows){el.innerHTML='<tr>'+head.map(h=>`<th>${h}</th>`).join('')+'</tr>'+rows.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>').join('')}
+function latestItem(name,when,val,prev){return `<div><div class="name">${name}</div><div class="when">${when}</div><div class="val">${val}</div><div class="prev">${prev}</div></div>`}
+const RECESSIONS=[['2020-02','2020-04']];
+// White background so downloaded PNGs are not transparent.
+const whiteBg={id:'whiteBg',beforeDraw:c=>{const x=c.ctx;x.save();x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);x.restore()}};
+const shade={id:'shade',beforeDatasetsDraw:c=>{const s=c.scales.x,a=c.chartArea,L=c.data.labels;if(!L.length)return;
+  const half=L.length>1?(s.getPixelForValue(1)-s.getPixelForValue(0))/2:(a.right-a.left)/2,x=c.ctx;
+  for(const [p,q] of RECESSIONS){if(q<L[0]||p>L[L.length-1])continue;
+    const i0=L.findIndex(m=>m>=p),i1=L.length-1-[...L].reverse().findIndex(m=>m<=q);
+    x.save();x.fillStyle='rgba(160,160,160,.22)';x.fillRect(s.getPixelForValue(i0)-half,a.top,s.getPixelForValue(i1)-s.getPixelForValue(i0)+2*half,a.bottom-a.top);x.restore()}}};
+Chart.register(whiteBg);
+Chart.defaults.font.family=getComputedStyle(document.body).fontFamily;
+Chart.defaults.interaction={mode:'index',intersect:false};
+Chart.defaults.elements.point.hoverRadius=5;
+Object.assign(Chart.defaults.plugins.tooltip,{backgroundColor:'rgba(17,24,39,.92)',padding:10,bodySpacing:4});
+const legendBottom={position:'bottom',labels:{usePointStyle:true,pointStyle:'circle',boxWidth:9,boxHeight:9,font:{weight:'600'}}};
+function download(chart,name){const a=document.createElement('a');a.href=chart.toBase64Image('image/png',1);a.download=name;a.click()}
+document.querySelectorAll('.fs').forEach(b=>{const p=document.getElementById(b.dataset.panel);
+  if(!p.requestFullscreen){b.remove();return}
+  b.onclick=()=>document.fullscreenElement?document.exitFullscreen():p.requestFullscreen()});
 fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
-  document.getElementById('through').textContent=d.meta.data_through;
+  const through=d.meta.data_through;
+  document.getElementById('through').textContent=through;
   const b=d.basket_check,u=d.event_study.uplift;
   document.getElementById('kpis').innerHTML=
     kpi(`${b.n_within_30bps} / ${b.n_checks}`,'basket-vs-NAV checks within 30 bps')+
@@ -48,40 +112,59 @@ fetch('data/public_aggregates.json').then(r=>r.json()).then(d=>{
     kpi(`+${u.estimate_pp.toFixed(1)} pp`,`event-study uplift, 95% CI ${u.ci_low_pp.toFixed(1)}–${u.ci_high_pp.toFixed(1)} (${u.n_events} onsets)`)+
     kpi(d.meta.asset_classes.reduce((s,a)=>s+a.n_funds,0),'funds across '+d.meta.asset_classes.length+' asset classes');
   const rows=d.monthly_by_asset_class, classes=[...new Set(rows.map(r=>r.asset_class))];
+  const nFunds=Object.fromEntries(d.meta.asset_classes.map(a=>[a.asset_class,a.n_funds]));
   const sel=document.getElementById('ac'); sel.innerHTML=classes.map(c=>`<option value="${c}">${c.replaceAll('_',' ')}</option>`).join('');
-  Chart.defaults.interaction={mode:'index',intersect:false};
-  Chart.defaults.elements.point.hoverRadius=5;
-  Object.assign(Chart.defaults.plugins.tooltip,{backgroundColor:'rgba(17,24,39,.92)',padding:10,bodySpacing:4});
   const fmtPct=v=>v==null?'not shown (<20 fund-sessions)':v.toFixed(1)+'%';
   const extra=r=>[`Fund-sessions: ${r.n_fund_sessions.toLocaleString()}`].concat(r.median_abs_premium_bps==null?[]:[`Median |premium|: ${r.median_abs_premium_bps.toFixed(1)} bps`]).concat(r.basis==='nav_unadjusted'?['Basis: unadjusted NAV premium (stale NAV)']:[]);
-  const HOVER='_hover';
-  let c1,c2;
-  function draw(){const ac=sel.value,rs=rows.filter(r=>r.asset_class===ac),m=rs.map(r=>r.month);
-    c1&&c1.destroy();c2&&c2.destroy();
+  const HOVER='_hover', throughMonth=through.slice(0,7), Y=+through.slice(0,4), M=through.slice(5,7);
+  const monthLabel=m=>m===throughMonth?`${m} (through ${through.slice(5)})`:m;
+  let range='all', c1;
+  const inRange=m=>range==='all'||(range==='ytd'?m>=`${Y}-01`:m>`${Y-range}-${M}`);
+  function series(rs){return [
+    {label:'% outside band',name:'Outside band',type:'bar',axis:'y',color:'#3fa9d8',vals:rs.map(r=>pct(r.share_out_of_band))},
+    {label:'net creations after out-of-band premium',name:'Net creations after out-of-band premium',type:'line',axis:'y1',color:'#e4572e',vals:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium))},
+    {label:'net creations after in-band session',name:'Net creations after in-band session',type:'line',axis:'y1',color:'#8a8f98',vals:rs.map(r=>pct(r.net_creation_share_after_in_band))}]}
+  function sidebar(ac,all){const n=nFunds[ac],stale=all.some(r=>r.basis==='nav_unadjusted');
+    document.getElementById('acdesc').textContent=`${n} fund${n===1?'':'s'}${n===1?' (monthly values are that fund\'s monthly aggregate)':''}. ${stale?'Premium measured against the unadjusted NAV, which is stale for these markets.':'Premium measured against the official NAV.'}`;
+    document.getElementById('latest').innerHTML=series(all).map(s=>{const i=s.vals.map(v=>v!=null).lastIndexOf(true);
+      if(i<0)return latestItem(s.name,'no month shown','—','all cells <20 fund-sessions');
+      const p=i>0?s.vals[i-1]:null;
+      return latestItem(s.name,monthLabel(all[i].month),s.vals[i].toFixed(1)+'%',i>0?`Previous (${all[i-1].month}): ${p==null?'not shown':p.toFixed(1)+'%'}`:'')}).join('')}
+  function draw(){const ac=sel.value,all=rows.filter(r=>r.asset_class===ac),rs=all.filter(r=>inRange(r.month)),m=rs.map(r=>r.month),ss=series(rs);
+    c1&&c1.destroy();
+    document.getElementById('sub1').textContent=`${ac.replaceAll('_',' ')} · monthly · ${m.length?m[0]+' to '+m[m.length-1]:'no data'}`;
     // Index-mode hover skips null (suppressed) points, so every month gets a transparent, always-present
     // anchor point; the tooltip is built from the month's row and the visible series, not from hovered items.
-    const monthChart=(canvas,series,yTitle)=>{const present=series.flatMap(s=>s.vals).filter(v=>v!=null),y=present.length?Math.min(...present):0;
-      return new Chart(canvas,{type:'line',data:{labels:m,datasets:series.map(s=>({label:s.label,data:s.vals,borderColor:s.color,pointRadius:2,spanGaps:false})).concat(
-        [{label:HOVER,data:m.map(()=>y),borderColor:'transparent',backgroundColor:'transparent',borderWidth:0,pointRadius:0,pointHoverRadius:0}])},
-        options:{plugins:{legend:{labels:{filter:i=>i.text!==HOVER}},tooltip:{displayColors:false,filter:c=>c.dataset.label===HOVER,callbacks:{
-          label:c=>series.filter((s,j)=>c.chart.isDatasetVisible(j)).map(s=>`${s.name}: ${fmtPct(s.vals[c.dataIndex])}`).concat(extra(rs[c.dataIndex]))}}},
-          scales:{y:present.length?{title:{display:true,text:yTitle}}:{min:0,max:100,title:{display:true,text:yTitle}}}}});};
-    c1=monthChart(oob,[{label:'% outside band',name:'Outside band',color:'#c0392b',vals:rs.map(r=>pct(r.share_out_of_band))}],'%');
-    c2=monthChart(resp,[
-      {label:'after out-of-band premium',name:'after out-of-band premium',color:'#1f77b4',vals:rs.map(r=>pct(r.net_creation_share_after_out_of_band_premium))},
-      {label:'after in-band session',name:'after in-band session',color:'#999',vals:rs.map(r=>pct(r.net_creation_share_after_in_band))}],'% of sessions');}
+    c1=new Chart(mon,{data:{labels:m,datasets:ss.map(s=>s.type==='bar'
+        ?{type:'bar',label:s.label,data:s.vals,yAxisID:s.axis,backgroundColor:s.color,borderWidth:0,barPercentage:.85,categoryPercentage:.9,order:2}
+        :{type:'line',label:s.label,data:s.vals,yAxisID:s.axis,borderColor:s.color,backgroundColor:s.color,borderWidth:s.axis==='y1'&&s.color==='#8a8f98'?1.5:2,pointRadius:2,spanGaps:false,order:1}).concat(
+        [{type:'line',label:HOVER,data:m.map(()=>0),yAxisID:'y',borderColor:'transparent',backgroundColor:'transparent',borderWidth:0,pointRadius:0,pointHoverRadius:0}])},
+      plugins:[shade],
+      options:{maintainAspectRatio:false,plugins:{legend:{...legendBottom,labels:{...legendBottom.labels,filter:i=>i.text!==HOVER}},
+        tooltip:{displayColors:false,filter:c=>c.dataset.label===HOVER,callbacks:{title:it=>it.length?monthLabel(it[0].label):[],
+          label:c=>ss.filter((s,j)=>c.chart.isDatasetVisible(j)).map(s=>`${s.name}: ${fmtPct(s.vals[c.dataIndex])}`).concat(extra(rs[c.dataIndex]))}}},
+        scales:{x:{grid:{display:false},ticks:{maxRotation:0,autoSkipPadding:18}},
+          y:{position:'left',min:0,max:100,title:{display:true,text:'% of fund-sessions outside band'}},
+          y1:{position:'right',min:0,max:100,grid:{drawOnChartArea:false},title:{display:true,text:'% of sessions with net creations'}}}}});
+    sidebar(ac,all);}
+  document.querySelectorAll('#range button').forEach(btn=>btn.onclick=()=>{range=btn.dataset.r==='all'||btn.dataset.r==='ytd'?btn.dataset.r:+btn.dataset.r;
+    document.querySelectorAll('#range button').forEach(x=>x.classList.toggle('on',x===btn));draw()});
   sel.value=classes.includes('us_high_yield_bond')?'us_high_yield_bond':classes[0]; sel.onchange=draw; draw();
-  const cols=['#1f77b4','#ff7f0e'];
+  document.getElementById('dl1').onclick=()=>download(c1,`etf-monitor-${sel.value}.png`);
+  const cols=['#e4572e','#3fa9d8'];
   const label={'us_bond:premium':'U.S. bond ETFs','us_equity:premium':'U.S. equity ETFs'};
   const gs=d.event_study.groups.filter(g=>g.group in label);
-  new Chart(es,{type:'line',data:{labels:gs[0].points.map(p=>p.k),datasets:gs.flatMap((g,i)=>[
-    {label:`${label[g.group]}, premium onsets (${g.n_events})`,data:g.points.map(p=>p.mean_pp),borderColor:cols[i]},
-    {label:'95% CI',data:g.points.map(p=>p.ci_low_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,pointHoverRadius:0,borderWidth:1},
-    {label:'95% CI',data:g.points.map(p=>p.ci_high_pp),borderColor:cols[i],borderDash:[4,4],pointRadius:0,pointHoverRadius:0,borderWidth:1}])},
-    options:{plugins:{legend:{labels:{filter:i=>i.text!=='95% CI'}},tooltip:{filter:c=>c.dataset.label!=='95% CI',callbacks:{
+  const c2=new Chart(es,{type:'line',data:{labels:gs[0].points.map(p=>p.k),datasets:gs.flatMap((g,i)=>[
+    {label:`${label[g.group]}, premium onsets (${g.n_events})`,data:g.points.map(p=>p.mean_pp),borderColor:cols[i],backgroundColor:cols[i],borderWidth:2,pointRadius:3},
+    {label:'95% CI',data:g.points.map(p=>p.ci_low_pp),borderColor:'transparent',pointRadius:0,pointHoverRadius:0,fill:false},
+    {label:'95% CI',data:g.points.map(p=>p.ci_high_pp),borderColor:'transparent',backgroundColor:cols[i]+'26',pointRadius:0,pointHoverRadius:0,fill:'-1'}])},
+    options:{maintainAspectRatio:false,plugins:{legend:{...legendBottom,labels:{...legendBottom.labels,filter:i=>i.text!=='95% CI'}},tooltip:{filter:c=>c.dataset.label!=='95% CI',callbacks:{
       title:it=>{if(!it.length)return [];const k=Number(it[0].label);return k===0?'k = 0 (onset session)':`k = ${k>0?'+':''}${k} (${Math.abs(k)} session${Math.abs(k)===1?'':'s'} ${k>0?'after':'before'} onset)`},
-      label:c=>{const p=gs[Math.floor(c.datasetIndex/3)].points[c.dataIndex];return `${label[gs[Math.floor(c.datasetIndex/3)].group]}: ${p.mean_pp>0?'+':''}${p.mean_pp.toFixed(1)} pp (95% CI ${p.ci_low_pp.toFixed(1)} to ${p.ci_high_pp.toFixed(1)})`}}}},scales:{x:{title:{display:true,text:'sessions relative to premium onset (k)'}},y:{title:{display:true,text:'pp'}}}}});
+      label:c=>{const p=gs[Math.floor(c.datasetIndex/3)].points[c.dataIndex];return `${label[gs[Math.floor(c.datasetIndex/3)].group]}: ${p.mean_pp>0?'+':''}${p.mean_pp.toFixed(1)} pp (95% CI ${p.ci_low_pp.toFixed(1)} to ${p.ci_high_pp.toFixed(1)})`}}}},
+      scales:{x:{grid:{display:false},title:{display:true,text:'sessions relative to premium onset (k)'}},y:{title:{display:true,text:'pp'}}}}});
+  document.getElementById('dl2').onclick=()=>download(c2,'etf-monitor-event-study.png');
   document.getElementById('esnote').textContent=`Uplift = mean over ${u.post_window} minus ${u.pre_window}.`;
+  document.getElementById('eslatest').innerHTML=latestItem('U.S. bond ETFs, premium onsets',`${u.post_window} minus ${u.pre_window} · ${u.n_events} onsets`,`+${u.estimate_pp.toFixed(1)} pp`,`95% CI ${u.ci_low_pp.toFixed(1)} to ${u.ci_high_pp.toFixed(1)}`);
   table(document.getElementById('fv'),['Fund','OOS sessions','Sample','Premium std, NAV (bps)','Premium std, fair value (bps)','OOS R² (zero mean)'],
     d.intl_fair_value.map(r=>[r.fund,r.n_oos,`${r.sample_start} – ${r.sample_end}`,f1(r.std_premium_nav_bps),f1(r.std_premium_fv_bps),r.oos_r2_zero_mean.toFixed(3)]));
   table(document.getElementById('pnl'),['Asset class','Basis','Sessions','Out of band','Median net per creation unit (USD)','Matched-flow share'],
